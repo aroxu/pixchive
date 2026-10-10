@@ -1,0 +1,8 @@
+# Only used by the one-time initialization command. Normal web/worker mounts stay read-only.
+services:
+  web:
+    volumes:
+      - type: bind
+        source: ./secrets
+        target: /run/pixchive-secrets
+        read_only: false

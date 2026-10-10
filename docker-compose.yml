@@ -1,0 +1,51 @@
+services:
+  web:
+    image: ${PIXCHIVE_IMAGE:-pixchive:local}
+    build: .
+    restart: unless-stopped
+    environment:
+      PIXCHIVE_DATA_DIR: /app/data
+      PIXCHIVE_KEY_FILE: /run/pixchive-secrets/credential.key
+      PIXCHIVE_SETUP_TOKEN_FILE: /run/pixchive-secrets/setup-token
+      PIXCHIVE_REDIS_URL: redis://redis:6379/0
+      PIXCHIVE_PUBLIC_URL: ${PIXCHIVE_PUBLIC_URL:-http://localhost:8000}
+      PIXCHIVE_ALLOWED_ORIGINS: ${PIXCHIVE_ALLOWED_ORIGINS:-}
+    ports:
+      - "${PIXCHIVE_BIND_HOST:-0.0.0.0}:${PIXCHIVE_PORT:-8000}:8000"
+    volumes:
+      - pixchive-data:/app/data
+      - ./secrets:/run/pixchive-secrets:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    image: ${PIXCHIVE_IMAGE:-pixchive:local}
+    build: .
+    restart: unless-stopped
+    command: ["/app/.venv/bin/arq", "app.worker.WorkerSettings"]
+    environment:
+      PIXCHIVE_DATA_DIR: /app/data
+      PIXCHIVE_KEY_FILE: /run/pixchive-secrets/credential.key
+      PIXCHIVE_SETUP_TOKEN_FILE: /run/pixchive-secrets/setup-token
+      PIXCHIVE_REDIS_URL: redis://redis:6379/0
+      PIXCHIVE_PUBLIC_URL: ${PIXCHIVE_PUBLIC_URL:-http://localhost:8000}
+    volumes:
+      - pixchive-data:/app/data
+      - ./secrets:/run/pixchive-secrets:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pixchive-data:

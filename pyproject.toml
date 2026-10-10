@@ -1,0 +1,33 @@
+[project]
+name = "pixchive"
+version = "0.1.0.dev0"
+description = "A personal, local-first Pixiv archive"
+license = "MIT"
+requires-python = ">=3.13,<3.15"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.34,<1",
+  "peewee>=3.17,<4",
+  "arq>=0.26,<1",
+  "pydantic>=2.10,<3",
+  "argon2-cffi>=23,<26",
+  "cryptography>=44,<49",
+  "pillow>=11,<13",
+  "gallery-dl>=1.28,<2",
+  "httpx>=0.28,<1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "pytest-asyncio>=1,<2", "ruff>=0.11,<1"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["."]

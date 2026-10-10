@@ -1,0 +1,14 @@
+# Redis for web/worker processes launched directly from this checkout.
+# Its DB can be discarded because SQLite outbox is the source of truth.
+services:
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:16379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
