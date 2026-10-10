@@ -28,8 +28,21 @@ Actions는 main에만 게시하며 검증 job 뒤 게시 job의 `GITHUB_TOKEN`�
   없음을 값 출력 없이 확인했다. 공개 문서와 테스트에는 예시 서버 이름을
   사용하며 실제 `.env`의 접속 주소는 유지한다.
 
-이 절은 로컬 게시 준비 검증이다. 원격 push와 Actions/GHCR 결과는 후속 확인
-기록으로 남긴다. 다른 CPU 아키텍처나 전체 실계정/E2E 검증을 의미하지 않는다.
+원격 결과: 최초 구현 커밋 `51da643255c2b87bfb0d08865636ddebdab55bb0`를 main에
+push했고 GitHub가 LICENSE를 MIT로 인식했다.
+[Actions 38047777471](https://github.com/aroxu/pixchive/actions/runs/38047777471)의
+verify와 publish는 모두 성공했다. 원격 backend 218개·frontend 2개 테스트,
+Ruff·TypeScript/build·OpenAPI 일치와 외부 고지 63개 생성이 통과했다.
+GHCR `latest`와 `sha-51da643255c2b87bfb0d08865636ddebdab55bb0`의 다이제스트는
+`sha256:e22542c3b85df1b3414269915240ec5fb68bed178d6f9a6ecbc4ebc6f832aac5`다.
+
+비어 있는 별도 Docker 인증 설정으로 이 다이제스트를 실제 pull해 익명 접근을
+확인했다. 다운로드한 이미지의 소스 URL/커밋·MIT label과 linux/amd64가 일치한다.
+별도 네트워크 없는 컨테이너에서 health/UI·라이선스 제공·worker import·기본
+게시일 정렬과 빈 DB/인증 경계를 확인하고 제거했다. GitHub 확인 이미지는
+`/tmp/pixchive-github-mit-20261010.jpg`다. 게시 준비/검증의 임시 자료를 제거했다.
+결과만 추가하는 문서 커밋에는 `[skip ci]`를 사용하며 위 이미지의 코드 커밋은
+변경하지 않는다. 다른 CPU 아키텍처나 전체 실계정/E2E 검증을 의미하지 않는다.
 
 ## 작품 게시일순 기본 정렬 (2026-10-10)
 
