@@ -1,0 +1,78 @@
+{
+  "recorded_on_kst": "2026-11-20",
+  "request": "Publish current Pixchive web/worker image to GHCR",
+  "source": {
+    "repository": "https://github.com/aroxu/pixchive",
+    "commit": "9a35600ea0ce38178c5e5c2d9cfe470f7c5a2df9",
+    "branch": "main"
+  },
+  "workflow": {
+    "url": "https://github.com/aroxu/pixchive/actions/runs/44725225864",
+    "run_id": 44725225864,
+    "conclusion": "success",
+    "verify_job": "success",
+    "publish_job": "success",
+    "completed_at_utc": "2026-11-20T11:14:46Z",
+    "gates": [
+      "backend pytest",
+      "Ruff lint and format",
+      "frontend tests",
+      "TypeScript",
+      "production build",
+      "runtime dependency licenses",
+      "OpenAPI byte comparison"
+    ]
+  },
+  "image": {
+    "tags": [
+      "ghcr.io/aroxu/pixchive:latest",
+      "ghcr.io/aroxu/pixchive:sha-9a35600ea0ce38178c5e5c2d9cfe470f7c5a2df9"
+    ],
+    "platform": "linux/amd64",
+    "index_digest": "sha256:8bacde4c9dc1392c75c8a784be1ab37d20ef939c75c4881c4f27788c56322782",
+    "platform_manifest_digest": "sha256:3564bccf95b412d4e38fab2d780bb13424d8b603065aa510a44bd6f0a5cc5554",
+    "tags_match": true,
+    "anonymous_pull": "passed using a separate empty Docker config",
+    "labels": {
+      "org.opencontainers.image.source": "https://github.com/aroxu/pixchive",
+      "org.opencontainers.image.revision": "9a35600ea0ce38178c5e5c2d9cfe470f7c5a2df9",
+      "org.opencontainers.image.licenses": "MIT"
+    }
+  },
+  "published_content": {
+    "app_files": 71,
+    "git_blob_matches_including_openapi": 72,
+    "saved_collections_api": true,
+    "schema": 11,
+    "media_delay_seconds": [0.1, 1.3],
+    "frontend_licenses_and_novnc_source": true,
+    "data_and_secrets_directories": "empty",
+    "private_environment_and_qa_paths": "absent"
+  },
+  "image_smoke": {
+    "network": "none",
+    "root_filesystem": "read-only",
+    "database": "new temporary directory on container tmpfs",
+    "health": "ok",
+    "session": "unauthenticated; setup required",
+    "frontend_routes": ["/library", "/collections", "/settings"],
+    "schema": 11,
+    "quick_check": "ok",
+    "foreign_key_errors": 0,
+    "admin_count": 0,
+    "artwork_count": 0,
+    "container_removed": true
+  },
+  "scope": {
+    "artifact": "shared web/worker image",
+    "browser_helper": "built separately as documented; no helper GHCR image published",
+    "archiver_runtime_changed": false,
+    "local_runtime_changed": false,
+    "real_account_requests_started": false,
+    "runtime_data_modified": false
+  },
+  "evidence": [
+    ".test-data/ghcr-publish-20261120",
+    ".test-data/ghcr-public-verify-20261120"
+  ]
+}

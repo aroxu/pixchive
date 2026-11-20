@@ -62,6 +62,8 @@ MIT/GHCR 게시 완료(2026-10-10): main의 최초 구현 커밋은 `51da643255c
 
 ## 기본 기술 결정
 
+- 현재 기능 GHCR 게시 완료(2026-11-20): main `9a35600ea0ce38178c5e5c2d9cfe470f7c5a2df9`의 Actions 44725225864 verify/publish가 성공했다. web/worker 공용 `ghcr.io/aroxu/pixchive:latest`와 전체 SHA 태그의 OCI index는 `sha256:8bacde4c9dc1392c75c8a784be1ab37d20ef939c75c4881c4f27788c56322782`로 같고 `linux/amd64`를 제공한다. 인증 없는 pull·소스/커밋/MIT label·앱 71파일/OpenAPI의 Git blob 일치·실행 자료 제외를 확인했다. 네트워크 없는 격리 실행에서 빈 DB 스키마 11·health/정적 화면·quick_check/FK·미인증 상태와 0.1~1.3초 미디어 대기를 확인했다. helper는 별도 빌드하며 archiver/로컬 실행 구성·실제 자료·키/연결을 변경하지 않았다. 문서 후속 커밋은 `[skip ci]`로 기록하며 이미지 코드 커밋은 위 SHA를 유지한다. 근거는 docs/validation.md와 docs/validation-ghcr-20261120.json을 따른다.
+
 - GHCR 최신 기능 게시 요청(2026-11-20): 사용자 요청으로 현재 검증 소스를 기존 공개 저장소 `aroxu/pixchive`의 main에 반영하고 기존 Actions의 verify→publish 경로로 web/worker 공용 `latest`·전체 SHA 태그를 게시한다. 로그인 helper는 별도 로컬 빌드 절차를 유지한다. 실행 데이터·실제 환경 파일·키·QA 자료는 게시하지 않으며 archiver를 다시 배포하지 않는다. 완료 여부는 docs/validation.md의 게시 결과와 실제 Actions/다이제스트 확인을 따른다.
 
 - 이미지 랜덤 대기 범위 확대(2026-11-20): 사용자 요청으로 각 미디어 HTTP 요청의 대기를 0.1~1.3초로 넓힌다. 이전 0.1~0.4초는 당시 기록이다. 기존 429 cooldown·취소·redirect/재시도·최대 3장 병렬·분당 작품 한도 제외와 일반 API 간격/설정을 유지한다. 검증·실제 배포·기존 자료 보존 범위는 docs/validation.md를 따른다.

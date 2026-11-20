@@ -2,6 +2,17 @@
 
 2026-11-20 갱신 · Windows / Docker Desktop WSL2 및 archiver Linux amd64 · 웹 Python 3.14.10 / 브라우저 Python 3.12.3 · Node 26.12.1
 
+## 현재 기능 GHCR 게시 완료 (2026-11-20)
+
+현재 소스를 main 커밋 `9a35600ea0ce38178c5e5c2d9cfe470f7c5a2df9`로 게시했다. [Actions 44725225864](https://github.com/aroxu/pixchive/actions/runs/44725225864)의 verify와 publish가 모두 성공했고, backend 테스트·Ruff/형식·frontend 테스트·TypeScript/production build·외부 라이선스 생성·OpenAPI 일치 게이트를 통과했다. 보관 목록·브라우저 로그인 연동·태그 번역·모바일 뷰어·수집 개선과 이미지 요청 0.1~1.3초 대기를 포함한다.
+
+- 이미지: `ghcr.io/aroxu/pixchive:latest` 및 `sha-9a35600ea0ce38178c5e5c2d9cfe470f7c5a2df9`. 두 태그의 OCI index 다이제스트는 `sha256:8bacde4c9dc1392c75c8a784be1ab37d20ef939c75c4881c4f27788c56322782`로 같다. 실행 대상은 `linux/amd64`이며 해당 manifest는 `sha256:3564bccf95b412d4e38fab2d780bb13424d8b603065aa510a44bd6f0a5cc5554`다.
+- 공개 접근: 인증 정보가 없는 별도 Docker 설정으로 pull에 성공했다. 이미지의 소스·전체 커밋·MIT label을 확인했고 앱 71파일과 OpenAPI의 Git blob 72개가 게시 커밋과 정확히 일치했다. 외부 라이선스와 noVNC 소스를 포함하며 data/secrets는 비어 있고 실제 환경 파일·QA 자료는 없다.
+- 실행 확인: 네트워크를 끊고 파일시스템을 읽기 전용으로 둔 컨테이너에서 tmpfs의 빈 임시 DB를 초기화했다. 스키마 11·health ok·setup 필요/미인증 세션·라이브러리/보관 목록/설정의 정적 화면 제공·quick_check ok·FK 오류 0·관리자/작품 0개를 확인했다. 이미지의 미디어 대기 샘플러가 0.1~1.3초를 사용하는 것도 확인했다. 임시 컨테이너와 DB는 제거했다.
+- 범위: web/worker 공용 이미지 게시다. 로그인 helper는 기존 문서대로 별도 빌드한다. archiver와 로컬 실행 구성·사용자 자료·키·연결·설정을 변경하지 않았고 실계정 수집을 시작하지 않았다. 이번 실행 확인은 전체 브라우저 E2E나 실제 429 감소 검증을 대신하지 않는다.
+
+근거는 [JSON 기록](validation-ghcr-20261120.json), 로컬 검사 기록은 `.test-data/ghcr-publish-20261120` 및 `.test-data/ghcr-public-verify-20261120`에 있다.
+
 ## 이미지 대기 0.1~1.3초 확대 (2026-11-20)
 
 사용자가 이미지 다운로드의 랜덤 대기를 0.1~1.3초로 넓히도록 요청했다. `media_request_delay()`의 상한 한 곳만 0.4→1.3으로 바꿨다. 다른 앱 파일·일반 API 요청 간격·분당 작품 예산·429 cooldown·취소·3개 병렬·API/스키마·UI는 그대로다.
