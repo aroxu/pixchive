@@ -15,6 +15,8 @@ DEFAULTS = {
     "full_refresh_days": "7",
     "metadata_refresh_days": "30",
     "request_interval_ms": "1000",
+    # Artwork information lookups per minute; list pages and image downloads do not count.
+    "pixiv_artworks_per_minute": "5",
 }
 FIELDS = {
     "enabled": "schedule_enabled",
@@ -23,7 +25,9 @@ FIELDS = {
     "full_refresh_days": "full_refresh_days",
     "metadata_refresh_days": "metadata_refresh_days",
     "request_interval_ms": "request_interval_ms",
+    "artworks_per_minute": "pixiv_artworks_per_minute",
 }
+ARTWORKS_PER_MINUTE = (1, 60)
 FULL_REFRESH_KEYS = {
     "public": "last_public_full_sync_at",
     "private": "last_private_full_sync_at",
@@ -86,6 +90,11 @@ def request_interval() -> float:
     return number("request_interval_ms") / 1000
 
 
+def artworks_per_minute() -> int:
+    low, high = ARTWORKS_PER_MINUTE
+    return min(high, max(low, number("pixiv_artworks_per_minute")))
+
+
 def view() -> dict:
     active = enabled()
     scope = get_setting("schedule_scope", DEFAULTS["schedule_scope"])
@@ -96,6 +105,7 @@ def view() -> dict:
         "full_refresh_days": number("full_refresh_days"),
         "metadata_refresh_days": number("metadata_refresh_days"),
         "request_interval_ms": number("request_interval_ms"),
+        "artworks_per_minute": artworks_per_minute(),
         "next_run_at": timestamp("schedule_next_at") if active else None,
         "next_mode": "full" if full_due(timestamp("schedule_next_at"), scope=scope) else "normal",
         "last_run_at": timestamp("schedule_last_at"),

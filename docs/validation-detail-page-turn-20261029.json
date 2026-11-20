@@ -1,0 +1,115 @@
+{
+  "recorded_on_kst": "2026-10-29",
+  "request": "Keep the detail page and scroll position when turning images, especially the mobile next-image button",
+  "causes": [
+    "Each page turn remounted the image, so its box was about 2px tall until the next image loaded; on the one-column mobile layout the document became shorter than the viewport and the scroll moved to the top",
+    "12 of 23 local multi-page works mix portrait and landscape pages, so the image height changed between pages",
+    "Moving between works replaced the whole detail with a loading screen and scrolled to the top"
+  ],
+  "before": {
+    "viewport": [
+      889,
+      884
+    ],
+    "page_turn_viewer_height_px": [
+      544,
+      2
+    ],
+    "page_turn_controls_top_px": [
+      231,
+      -311
+    ],
+    "next_work_full_page_loading": true,
+    "next_work_scroll_y": [
+      150,
+      0
+    ]
+  },
+  "behavior": {
+    "image_element_reused_within_work": true,
+    "frame_ratio": "tallest page height/width of the work, capped by existing 78vh desktop / 65vh mobile",
+    "adjacent_pages_decoded_in_document": true,
+    "media_cache_control_unchanged": "private, no-store",
+    "repeat_requests_for_decoded_images": 0,
+    "previous_work_kept_while_loading": true,
+    "interaction_locked_while_switching": true,
+    "scroll_top_only_on_first_detail_entry": true,
+    "page_counter_fixed_width": true
+  },
+  "after": {
+    "desktop": {
+      "viewport": [
+        889,
+        884
+      ],
+      "sequential_turns": 4,
+      "rapid_turns": 6,
+      "viewer_height_px": 544,
+      "scroll_y": 420,
+      "portrait_landscape_round_trip_scroll_y": 420,
+      "next_work_kept_previous_ms": 94,
+      "next_work_scroll_y": 150,
+      "library_entry_scroll_y": [
+        1600,
+        0
+      ],
+      "library_return_scroll_y": 1600
+    },
+    "mobile": {
+      "viewport": [
+        390,
+        844
+      ],
+      "input": "native click",
+      "pages": [
+        "20 portrait",
+        "21 landscape",
+        "22 portrait",
+        "21",
+        "20"
+      ],
+      "document_height_px": 1242,
+      "viewer_height_px": 551,
+      "controls_top_px": 368,
+      "scroll_y_at_maximum": 398,
+      "next_work_scroll_y": 120,
+      "horizontal_overflow": false
+    },
+    "fullscreen": {
+      "turned_pages": [
+        "21",
+        "22"
+      ],
+      "detail_page_after_close": "22 / 35",
+      "scroll_y_after_close": 420,
+      "console_errors": 0
+    }
+  },
+  "verification": {
+    "frontend_tests": 6,
+    "typecheck": "passed",
+    "production_build": "passed",
+    "prettier": "passed",
+    "backend_changed": false
+  },
+  "deployment": {
+    "url": "http://localhost:8000",
+    "image": "pixchive:detail-scroll-20261029",
+    "image_id": "sha256:542c1103ffe28486c99f7a164c481e7f736d66142675483c3d4106094383b23e",
+    "base_image": "pixchive:sidebar-storage-20261029",
+    "web_only_recreated": true,
+    "worker_browser_redis_preserved": true,
+    "database_quick_check": "ok",
+    "foreign_key_errors": 0,
+    "schema": 11,
+    "artworks": 29,
+    "assets": 261,
+    "fixture_artworks": 0,
+    "archiver_unchanged": true
+  },
+  "limits": [
+    "Not checked on a physical phone or iOS Safari; mobile size and native input were checked in the in-app browser",
+    "Pages already open before the deployment need a refresh"
+  ],
+  "screenshot": "C:/Users/zeus8/.codex/visualizations/2026/10/25/01a173b8-805a-7022-835b-257894f3147a/detail-page-turn-mobile-20261029.jpg"
+}

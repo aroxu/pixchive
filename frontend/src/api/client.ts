@@ -8,6 +8,9 @@ let csrfToken: string | null = null;
 export function setCsrf(token: string | null) {
   csrfToken = token;
 }
+export function getCsrf(): string | null {
+  return csrfToken;
+}
 
 export class ApiError extends Error {
   constructor(

@@ -26,9 +26,11 @@ from app.models.entities import (
 from app.services import preferences, storage_budget
 
 ACTIVE = ("running", "pausing", "cancelling")
-LEASE_SECONDS = 30
+LEASE_SECONDS = 120
 # Jobs that own child conversion jobs and wait for them before reporting a result.
 PARENTS = ("sync", "restore", "repair")
+# Account jobs that wait for a working Pixiv login and continue once it is verified.
+AUTH_WAITING = (*PARENTS, "validate")
 # A shared conversion can still be required by another collection or recovery job.
 CHILD_DEMAND = ("queued", "running", "waiting_children")
 CHILD_RETAIN = (*CHILD_DEMAND, "pausing", "paused", "waiting_auth", "waiting_storage")
@@ -84,7 +86,7 @@ def compact_scan(job_id: str):
 
 def resume_waiting_auth():
     """After a successful connection check, account jobs held for auth continue."""
-    for job in Job.select().where(Job.kind.in_(PARENTS) & (Job.state == "waiting_auth")):
+    for job in Job.select().where(Job.kind.in_(AUTH_WAITING) & (Job.state == "waiting_auth")):
         try:
             action(job.id, "resume")
         except DomainError:
@@ -126,15 +128,22 @@ def serialize(job: Job, scans: dict | None = None) -> dict:
 
 
 def list_jobs() -> list[dict]:
-    items = list(Job.select().order_by(Job.created_at.desc(), SQL("rowid DESC")).limit(100))
+    items = list(
+        Job.select()
+        .order_by((Job.state == "running").desc(), Job.created_at.desc(), SQL("rowid DESC"))
+        .limit(100)
+    )
     scans = scan_counts([job.id for job in items if job.kind == "sync"])
     return [serialize(job, scans) for job in items]
 
 
-def page_jobs(query, page: int, page_size: int) -> dict:
+def page_jobs(query, page: int, page_size: int, *, running_first=False) -> dict:
     total = query.count()
     page = min(page, max(1, math.ceil(total / page_size)))
-    items = list(query.order_by(Job.created_at.desc(), Job.id.desc()).paginate(page, page_size))
+    ordering = [Job.created_at.desc(), Job.id.desc()]
+    if running_first:
+        ordering.insert(0, (Job.state == "running").desc())
+    items = list(query.order_by(*ordering).paginate(page, page_size))
     scans = scan_counts([job.id for job in items if job.kind == "sync"])
     return {
         "items": [serialize(job, scans) for job in items],
@@ -149,7 +158,7 @@ def history(page: int, page_size: int, kind=None, state=None, origin=None) -> di
     for field, value in ((Job.kind, kind), (Job.state, state), (Job.origin, origin)):
         if value is not None:
             query = query.where(field == value)
-    return page_jobs(query, page, page_size)
+    return page_jobs(query, page, page_size, running_first=True)
 
 
 def detail(job_id: str) -> dict:
@@ -444,6 +453,9 @@ def enqueue_account(
             else Job.get_or_none(Job.active_key == active_key)
         )
         if existing:
+            if existing.state == "waiting_auth":
+                # A new request after the login changed must run again, not stay absorbed.
+                return action(existing.id, "resume")
             return existing
         if Job.select().where(Job.active_key == active_key).exists():
             raise DomainError("job_stopping", "이전 작업의 종료 후 다시 요청해 주세요.", 409)
@@ -699,10 +711,18 @@ def heartbeat(job_id: str, owner: str) -> bool:
         job = owned(job_id, owner)
         if not job:
             return False
-        Job.update(heartbeat=now(), lease_until=now() + LEASE_SECONDS).where(
-            Job.id == job_id
+        current = now()
+        lease = Lease.get_or_none(
+            (Lease.key == job.lease_key) & (Lease.owner == owner) & (Lease.expires_at > current)
+        )
+        # Losing either fence is final for this execution; never revive an old
+        # account/conversion owner even if its job row has not been recovered yet.
+        if lease is None or job.lease_until <= current:
+            return False
+        Job.update(heartbeat=current, lease_until=current + LEASE_SECONDS).where(
+            (Job.id == job_id) & (Job.owner == owner)
         ).execute()
-        Lease.update(expires_at=now() + LEASE_SECONDS).where(
+        Lease.update(expires_at=current + LEASE_SECONDS).where(
             (Lease.key == job.lease_key) & (Lease.owner == owner)
         ).execute()
         return True

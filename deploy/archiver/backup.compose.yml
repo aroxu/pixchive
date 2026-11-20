@@ -1,0 +1,19 @@
+# Used only by start.sh backup. The ordinary web container never mounts helper state.
+services:
+  web:
+    # This one-off container runs the backup CLI, without an HTTP server.
+    healthcheck:
+      disable: true
+    volumes:
+      - type: bind
+        source: ${PIXCHIVE_ROOT:-/mnt/storage/pixchive}/browser-state
+        target: /backup-browser-state
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./backup.py
+        target: /opt/pixchive-deploy/backup.py
+        read_only: true
+        bind:
+          create_host_path: false

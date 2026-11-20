@@ -126,6 +126,197 @@ def test_ugoira_uses_server_original_zip_and_exact_timing():
     assert work["ugoira_frames"] == [{"file": "000000.jpg", "delay": 123}]
 
 
+@pytest.mark.parametrize("kind", [0, 2])
+def test_collects_english_and_korean_from_pixiv_localized_en_slot(kind):
+    languages = []
+
+    def handler(request):
+        if request.url.path == "/ajax/illust/123":
+            language = request.url.params["lang"]
+            languages.append(language)
+            data = artwork(kind)
+            data["tags"]["tags"] = (
+                [
+                    {"tag": "風景", "translation": {"en": "landscape"}},
+                    {"tag": "Original", "translation": {"en": "original"}},
+                ]
+                if language == "en"
+                else [
+                    {"tag": "Original", "translation": {"en": "original"}},
+                    {"tag": "風景", "translation": {"en": "풍경"}},
+                    {"tag": "別のタグ", "translation": {"en": "다른 태그"}},
+                ]
+            )
+            return ok(data)
+        return router(request, kind=kind)
+
+    work = bridge_with(handler).artwork("123")
+    assert languages == ["en", "ko"]
+    assert [tag.model_dump() for tag in work.work_tags] == [
+        {"name": "風景", "translations": {"en": "landscape", "ko": "풍경"}},
+        {"name": "Original", "translations": {"en": "original"}},
+    ]
+
+
+def test_keeps_explicit_translation_languages_without_another_request():
+    languages = []
+
+    def handler(request):
+        if request.url.path == "/ajax/illust/123":
+            languages.append(request.url.params["lang"])
+            data = artwork()
+            data["tags"]["tags"][0]["translation"] = {"en": "landscape", "ko": "풍경"}
+            return ok(data)
+        return router(request)
+
+    work = bridge_with(handler).artwork("123")
+    assert languages == ["en"]
+    assert work.work_tags[0].translations == {"en": "landscape", "ko": "풍경"}
+
+
+@pytest.mark.parametrize("tags", [None, []])
+def test_missing_or_empty_work_tags_do_not_request_translations(tags):
+    languages = []
+
+    def handler(request):
+        if request.url.path == "/ajax/illust/123":
+            languages.append(request.url.params["lang"])
+            data = artwork()
+            data["tags"] = {"tags": tags}
+            return ok(data)
+        return router(request)
+
+    work = bridge_with(handler).artwork("123")
+    assert languages == ["en"]
+    assert work.work_tags == tags
+
+
+def test_missing_korean_tag_fields_preserve_the_english_observation():
+    def handler(request):
+        if request.url.path == "/ajax/illust/123" and request.url.params["lang"] == "ko":
+            data = artwork()
+            del data["tags"]
+            return ok(data)
+        return router(request)
+
+    work = bridge_with(handler).artwork("123")
+    assert work.work_tags[0].translations == {"en": "landscape"}
+
+
+def test_korean_response_keeps_explicit_language_keys_and_ignores_empty_values():
+    def handler(request):
+        if request.url.path == "/ajax/illust/123":
+            data = artwork()
+            data["tags"]["tags"][0]["translation"] = (
+                {"en": None, "ko": "  "}
+                if request.url.params["lang"] == "en"
+                else {"en": "landscape", "ko": "풍경", "ja": "風景"}
+            )
+            return ok(data)
+        return router(request)
+
+    work = bridge_with(handler).artwork("123")
+    assert work.work_tags[0].translations == {"en": "landscape", "ko": "풍경", "ja": "風景"}
+
+
+@pytest.mark.parametrize("name", ["landscape", "풍경"])
+def test_legacy_translation_without_english_baseline_is_saved_and_searchable_as_und(admin, name):
+    from app.models.entities import TagTranslation
+    from app.services import library
+
+    languages = []
+
+    def handler(request):
+        if request.url.path == "/ajax/illust/123":
+            language = request.url.params["lang"]
+            languages.append(language)
+            data = artwork()
+            tag = data["tags"]["tags"][0]
+            if language == "en":
+                del tag["translation"]
+            else:
+                tag["translation"] = {"en": name}
+            return ok(data)
+        return router(request)
+
+    work = bridge_with(handler).artwork("123")
+    assert languages == ["en", "ko"]
+    assert [tag.model_dump() for tag in work.work_tags] == [
+        {"name": "風景", "translations": {"und": name}}
+    ]
+    library.ingest(work, "private")
+    rows = TagTranslation.select(
+        TagTranslation.language, TagTranslation.name, TagTranslation.source
+    ).tuples()
+    assert list(rows) == [("und", name, "pixiv")]
+
+    response = admin.get("/api/artworks/123")
+    assert response.status_code == 200, response.text
+    tags = response.json()["tags"]
+    assert len(tags) == 1
+    assert tags[0]["name"] == "風景"
+    assert tags[0]["sources"] == ["pixiv_work"]
+    expected_translations = [{"language": "und", "name": name, "source": "pixiv"}]
+    assert tags[0]["translations"] == expected_translations
+    # The fixture title/artist do not contain either query; both searches require the tag.
+    for query in ("風景", name):
+        response = admin.get("/api/artworks", params={"q": query, "tag_source": "pixiv_work"})
+        assert response.status_code == 200, response.text
+        assert response.json()["total"] == 1
+        assert [item["id"] for item in response.json()["items"]] == ["123"]
+    response = admin.get("/api/tags/catalog/pages", params={"q": name})
+    assert response.status_code == 200, response.text
+    assert response.json()["total"] == 1
+    assert response.json()["items"][0]["id"] == tags[0]["id"]
+    assert response.json()["items"][0]["translations"] == expected_translations
+
+
+@pytest.mark.parametrize(
+    "status,code", [(401, "auth_expired"), (403, "access_denied"), (429, "rate_limited")]
+)
+def test_korean_translation_request_errors_are_not_silently_ignored(status, code):
+    def handler(request):
+        if request.url.path == "/ajax/illust/123" and request.url.params["lang"] == "ko":
+            return httpx.Response(status, headers={"Retry-After": "90"})
+        return router(request)
+
+    with pytest.raises(AdapterError, match=code) as error:
+        bridge_with(handler).artwork("123")
+    if status == 429:
+        assert error.value.retry_after == 90
+
+
+def test_korean_translation_response_cannot_mix_artwork_identities():
+    def handler(request):
+        if request.url.path == "/ajax/illust/123" and request.url.params["lang"] == "ko":
+            data = artwork()
+            data["id"] = "999"
+            return ok(data)
+        return router(request)
+
+    with pytest.raises(AdapterError, match="contract"):
+        bridge_with(handler).artwork("123")
+
+
+def test_web_localized_translations_are_saved_and_searchable(admin):
+    from app.services import library
+
+    def handler(request):
+        if request.url.path == "/ajax/illust/123":
+            data = artwork()
+            name = "landscape" if request.url.params["lang"] == "en" else "풍경"
+            data["tags"]["tags"][0]["translation"] = {"en": name}
+            return ok(data)
+        return router(request)
+
+    library.ingest(bridge_with(handler).artwork("123"), "private")
+    for query in ("風景", "풍경", "LANDSCAPE"):
+        response = admin.get("/api/artworks", params={"q": query})
+        assert response.status_code == 200
+        assert response.json()["total"] == 1
+        assert response.json()["items"][0]["id"] == "123"
+
+
 @pytest.mark.parametrize("mapping", [{}, []])
 def test_explicit_empty_bookmark_tag_map_is_distinct_from_missing_field(mapping):
     def handler(request):
@@ -284,6 +475,7 @@ def test_request_interval_spaces_pixiv_requests(monkeypatch):
     moments, sleeps = iter([0.0, 0.1, 0.1, 0.2, 5.0, 5.0]), []
     monkeypatch.setattr(web.time, "monotonic", lambda: next(moments))
     monkeypatch.setattr(web.time, "sleep", sleeps.append)
+    monkeypatch.setattr(web.random, "uniform", lambda low, high: 0)
     bridge = WebBridge(
         COOKIE,
         httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, text=identity()))),
@@ -292,6 +484,81 @@ def test_request_interval_spaces_pixiv_requests(monkeypatch):
     bridge.validate()
     bridge.validate()
     assert sleeps == [pytest.approx(0.9)]
+
+
+@pytest.mark.parametrize("interval", [0.5, 1.0, 30.0])
+def test_request_jitter_varies_gaps_without_shortening_the_interval(monkeypatch, interval):
+    import app.adapters.pixiv.web as web
+
+    current, requests, sleeps = [1000.0], [], []
+    samples = iter([0.0, 0.5, 1.0])
+    monkeypatch.setattr(web.time, "monotonic", lambda: current[0])
+    monkeypatch.setattr(web.random, "uniform", lambda low, high: high * next(samples))
+
+    def sleep(seconds):
+        sleeps.append(seconds)
+        current[0] += seconds
+
+    def handler(request):
+        requests.append(current[0])
+        return httpx.Response(200, text=identity())
+
+    monkeypatch.setattr(web.time, "sleep", sleep)
+    bridge = WebBridge(COOKIE, httpx.Client(transport=httpx.MockTransport(handler)), interval)
+    for _ in range(4):
+        bridge.validate()
+    bound = min(interval * 0.3, 1.0)
+    gaps = [right - left for left, right in zip(requests, requests[1:], strict=False)]
+    assert gaps == pytest.approx([interval, interval + bound / 2, interval + bound])
+    assert sleeps == pytest.approx(gaps)
+
+
+def test_jitter_does_not_wait_when_interval_is_disabled_or_already_elapsed(monkeypatch):
+    import app.adapters.pixiv.web as web
+
+    current, sleeps, samples = [1000.0], [], []
+    monkeypatch.setattr(web.time, "monotonic", lambda: current[0])
+    monkeypatch.setattr(web.time, "sleep", sleeps.append)
+
+    def sample(low, high):
+        samples.append(high)
+        return high
+
+    monkeypatch.setattr(web.random, "uniform", sample)
+    for interval in (0.0, 0.5):
+        bridge = WebBridge(
+            COOKIE,
+            httpx.Client(
+                transport=httpx.MockTransport(lambda request: httpx.Response(200, text=identity()))
+            ),
+            interval,
+        )
+        bridge.validate()
+        current[0] += 2
+        bridge.validate()
+    assert sleeps == [] and samples == [0.15]
+
+
+def test_identity_redirect_keeps_the_minimum_gap_and_jitter(monkeypatch):
+    import app.adapters.pixiv.web as web
+
+    current, requests = [1000.0], []
+    monkeypatch.setattr(web.time, "monotonic", lambda: current[0])
+    monkeypatch.setattr(web.random, "uniform", lambda low, high: high)
+
+    def sleep(seconds):
+        current[0] += seconds
+
+    def handler(request):
+        requests.append((request.url.path, current[0]))
+        if request.url.path == "/":
+            return httpx.Response(302, headers={"location": "/en/"})
+        return httpx.Response(200, text=identity())
+
+    monkeypatch.setattr(web.time, "sleep", sleep)
+    bridge = WebBridge(COOKIE, httpx.Client(transport=httpx.MockTransport(handler)), interval=1.0)
+    bridge.validate()
+    assert requests == [("/", 1000.0), ("/en/", 1001.3)]
 
 
 def test_invalid_identity_and_oversized_response_fail_closed():

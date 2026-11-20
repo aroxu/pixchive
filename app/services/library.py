@@ -1,7 +1,7 @@
 import hashlib
 import unicodedata
 
-from peewee import SQL
+from peewee import SQL, fn
 
 from app.adapters.pixiv.contracts import RatingEvidence, RemoteArtwork
 from app.core.db import db, normalize
@@ -18,6 +18,7 @@ from app.models.entities import (
     Bookmark,
     BookmarkTag,
     PixivAccount,
+    SavedCollectionArtwork,
     Setting,
     Tag,
     TagTranslation,
@@ -258,7 +259,7 @@ def filters(q="", artist=None, tag=None, **options) -> tuple[str, list]:
     return conditions(query, get_setting("show_sensitive") == "true")
 
 
-def artwork_summary(a: Artwork) -> dict:
+def artwork_summary(a: Artwork, *, collection_count: int | None = None) -> dict:
     first = None
     legacy = False
     if a.kind == "ugoira":
@@ -328,6 +329,10 @@ def artwork_summary(a: Artwork) -> dict:
         "collected_at": a.collected_at,
         "created_at": a.created_at,
         "is_fixture": a.is_fixture,
+        "favorite": a.favorite,
+        "collection_count": collection_count
+        if collection_count is not None
+        else SavedCollectionArtwork.select().where(SavedCollectionArtwork.artwork == a).count(),
         "thumbnail_url": f"/api/media/{first.id}" if first else None,
         "width": first.width if first else None,
         "height": first.height if first else None,
@@ -347,8 +352,19 @@ def list_artworks(
             [*params, page_size, (page - 1) * page_size],
         )
     ]
+    collection_counts = {
+        item.artwork_id: item.total
+        for item in SavedCollectionArtwork.select(
+            SavedCollectionArtwork.artwork, fn.COUNT(SavedCollectionArtwork.id).alias("total")
+        )
+        .where(SavedCollectionArtwork.artwork.in_(ids))
+        .group_by(SavedCollectionArtwork.artwork)
+    }
     return {
-        "items": [artwork_summary(Artwork.get_by_id(i)) for i in ids],
+        "items": [
+            artwork_summary(Artwork.get_by_id(i), collection_count=collection_counts.get(i, 0))
+            for i in ids
+        ],
         "total": total,
         "page": page,
         "page_size": page_size,

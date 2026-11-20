@@ -34,6 +34,7 @@ import {
 import { LibraryFilters, filterOptions } from "../components/LibraryFilters";
 import { useArtworkTagEdit } from "../hooks/useArtworkTagEdit";
 import { ko } from "../i18n/ko";
+import { ArtworkSaveActions } from "../components/ArtworkSaveActions";
 
 export function Library({
   scope = {},
@@ -90,6 +91,25 @@ export function Library({
   useEffect(() => {
     setSelection([]);
   }, [selectionScope]);
+  useEffect(() => {
+    if (!query.data || query.isFetching) return;
+    const lastPage = Math.max(
+      1,
+      Math.ceil(query.data.total / query.data.page_size),
+    );
+    if (query.data.page <= lastPage) return;
+    focusResults.current = true;
+    const next = new URLSearchParams(params);
+    if (lastPage === 1) next.delete("page");
+    else next.set("page", String(lastPage));
+    setParams(next, { replace: true, state: directoryState });
+  }, [
+    query.data,
+    query.isFetching,
+    params,
+    setParams,
+    location.state?.directoryFrom,
+  ]);
   useEffect(() => {
     if (!query.data || restored.current === location.key) return;
     const frame = requestAnimationFrame(() => {
@@ -200,7 +220,11 @@ export function Library({
                 id="library-results"
                 tabIndex={-1}
               >
-                {ko.allArtworks}
+                {scope.favorite
+                  ? ko.favorites
+                  : scope.collection_id
+                    ? ko.savedCollections
+                    : ko.allArtworks}
               </span>
               {query.data && (
                 <span className="result-count" role="status">
@@ -291,16 +315,24 @@ export function Library({
               <h2>
                 {filtered
                   ? ko.noResults
-                  : scoped
-                    ? ko.emptyCollection
-                    : ko.emptyTitle}
+                  : scope.favorite
+                    ? ko.noFavorites
+                    : scope.collection_id
+                      ? ko.emptySavedCollection
+                      : scoped
+                        ? ko.emptyCollection
+                        : ko.emptyTitle}
               </h2>
               <p>
                 {filtered
                   ? ko.noResultsDescription
-                  : scoped
-                    ? ko.emptyCollectionHelp
-                    : ko.emptyDescription}
+                  : scope.favorite
+                    ? ko.noFavoritesHelp
+                    : scope.collection_id
+                      ? ko.emptySavedCollectionHelp
+                      : scoped
+                        ? ko.emptyCollectionHelp
+                        : ko.emptyDescription}
               </p>
               {filtered ? (
                 <Button variant="secondary" onPress={clear}>
@@ -384,6 +416,7 @@ export function Library({
                       {artwork.is_fixture && (
                         <span className="fixture-badge">{ko.sample}</span>
                       )}
+                      <ArtworkSaveActions artwork={artwork} compact />
                     </div>
                     <div className="artwork-info">
                       <h2>

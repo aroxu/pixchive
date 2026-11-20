@@ -75,6 +75,91 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/accounts/1/browser": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Browser Status */
+    get: operations["browser_status_api_accounts_1_browser_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/accounts/1/browser/open": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Browser Open */
+    post: operations["browser_open_api_accounts_1_browser_open_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/accounts/1/browser/reauth": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Browser Reauthenticate */
+    post: operations["browser_reauthenticate_api_accounts_1_browser_reauth_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/accounts/1/browser/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Browser Login */
+    post: operations["browser_login_api_accounts_1_browser_login_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/accounts/1/browser/complete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Browser Complete */
+    post: operations["browser_complete_api_accounts_1_browser_complete_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/artworks": {
     parameters: {
       query?: never;
@@ -160,6 +245,95 @@ export interface paths {
     head?: never;
     /** Edit Note */
     patch: operations["edit_note_api_artworks__artwork_id__patch"];
+    trace?: never;
+  };
+  "/api/artworks/{artwork_id}/saved": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Artwork Save State */
+    get: operations["artwork_save_state_api_artworks__artwork_id__saved_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/artworks/{artwork_id}/favorite": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Favorite Artwork */
+    put: operations["favorite_artwork_api_artworks__artwork_id__favorite_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/collections": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Saved Collection Pages */
+    get: operations["saved_collection_pages_api_collections_get"];
+    put?: never;
+    /** Create Saved Collection */
+    post: operations["create_saved_collection_api_collections_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/collections/{collection_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Saved Collection Detail */
+    get: operations["saved_collection_detail_api_collections__collection_id__get"];
+    put?: never;
+    post?: never;
+    /** Delete Saved Collection */
+    delete: operations["delete_saved_collection_api_collections__collection_id__delete"];
+    options?: never;
+    head?: never;
+    /** Rename Saved Collection */
+    patch: operations["rename_saved_collection_api_collections__collection_id__patch"];
+    trace?: never;
+  };
+  "/api/collections/{collection_id}/artworks/{artwork_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Add To Saved Collection */
+    put: operations["add_to_saved_collection_api_collections__collection_id__artworks__artwork_id__put"];
+    post?: never;
+    /** Remove From Saved Collection */
+    delete: operations["remove_from_saved_collection_api_collections__collection_id__artworks__artwork_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   "/api/artworks/{artwork_id}/history": {
@@ -918,6 +1092,10 @@ export interface components {
       created_at: string | null;
       /** Is Fixture */
       is_fixture: boolean;
+      /** Favorite */
+      favorite: boolean;
+      /** Collection Count */
+      collection_count: number;
       /** Thumbnail Url */
       thumbnail_url: string | null;
       /** Width */
@@ -994,6 +1172,13 @@ export interface components {
       /** Height */
       height: number;
     };
+    /** ArtworkSaveState */
+    ArtworkSaveState: {
+      /** Favorite */
+      favorite: boolean;
+      /** Collection Ids */
+      collection_ids: string[];
+    };
     /** ArtworkSummary */
     ArtworkSummary: {
       /** Id */
@@ -1018,6 +1203,10 @@ export interface components {
       created_at: string | null;
       /** Is Fixture */
       is_fixture: boolean;
+      /** Favorite */
+      favorite: boolean;
+      /** Collection Count */
+      collection_count: number;
       /** Thumbnail Url */
       thumbnail_url: string | null;
       /** Width */
@@ -1048,6 +1237,51 @@ export interface components {
       last_seen: number;
       /** Bookmarked At */
       bookmarked_at: string | null;
+    };
+    /** BrowserStatus */
+    BrowserStatus: {
+      /** Enabled */
+      enabled: boolean;
+      /**
+       * State
+       * @enum {string}
+       */
+      state:
+        | "disabled"
+        | "starting"
+        | "connected"
+        | "reauthenticating"
+        | "needs_login"
+        | "awaiting_confirmation"
+        | "unavailable"
+        | "error";
+      /** Last Checked */
+      last_checked: number | null;
+      /** Last Synced */
+      last_synced: number | null;
+      /** Auto Reauth */
+      auto_reauth: boolean;
+      /**
+       * Login Pending
+       * @default false
+       */
+      login_pending: boolean;
+      /** View Available */
+      view_available: boolean;
+      /** Message Code */
+      message_code: string | null;
+    };
+    /** CollectionNameInput */
+    CollectionNameInput: {
+      /** Name */
+      name: string;
+    };
+    /** CreateCollectionInput */
+    CreateCollectionInput: {
+      /** Name */
+      name: string;
+      /** Artwork Id */
+      artwork_id?: string | null;
     };
     /** CredentialInput */
     CredentialInput: {
@@ -1113,6 +1347,11 @@ export interface components {
       /** Page Size */
       page_size: number;
     };
+    /** FavoriteInput */
+    FavoriteInput: {
+      /** Favorite */
+      favorite: boolean;
+    };
     /** FileList */
     FileList: {
       /** Items */
@@ -1157,6 +1396,8 @@ export interface components {
       media_type: string;
       /** Provenance */
       provenance: string | null;
+      /** Current */
+      current: boolean;
       /** Url */
       url: string | null;
       /** Download Name */
@@ -1459,6 +1700,28 @@ export interface components {
       artwork_id: string;
       job: components["schemas"]["JobView"] | null;
     };
+    /** SavedCollectionList */
+    SavedCollectionList: {
+      /** Items */
+      items: components["schemas"]["SavedCollectionView"][];
+      /** Total */
+      total: number;
+      /** Page */
+      page: number;
+      /** Page Size */
+      page_size: number;
+    };
+    /** SavedCollectionView */
+    SavedCollectionView: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Artwork Count */
+      artwork_count: number;
+      /** Created At */
+      created_at: number;
+    };
     /** ScanCounts */
     ScanCounts: {
       /** Discovered */
@@ -1494,6 +1757,8 @@ export interface components {
       metadata_refresh_days?: number | null;
       /** Request Interval Ms */
       request_interval_ms?: number | null;
+      /** Artworks Per Minute */
+      artworks_per_minute?: number | null;
     };
     /** ScheduleView */
     ScheduleView: {
@@ -1512,6 +1777,8 @@ export interface components {
       metadata_refresh_days: number;
       /** Request Interval Ms */
       request_interval_ms: number;
+      /** Artworks Per Minute */
+      artworks_per_minute: number;
       /** Next Run At */
       next_run_at: number | null;
       /**
@@ -1918,10 +2185,112 @@ export interface operations {
       };
     };
   };
+  browser_status_api_accounts_1_browser_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BrowserStatus"];
+        };
+      };
+    };
+  };
+  browser_open_api_accounts_1_browser_open_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BrowserStatus"];
+        };
+      };
+    };
+  };
+  browser_reauthenticate_api_accounts_1_browser_reauth_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BrowserStatus"];
+        };
+      };
+    };
+  };
+  browser_login_api_accounts_1_browser_login_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BrowserStatus"];
+        };
+      };
+    };
+  };
+  browser_complete_api_accounts_1_browser_complete_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BrowserStatus"];
+        };
+      };
+    };
+  };
   artworks_api_artworks_get: {
     parameters: {
       query?: {
         q?: string;
+        favorite?: boolean | null;
+        collection_id?: string | null;
         artist?: string | null;
         tag_id?: number | null;
         tag?: string[];
@@ -2140,6 +2509,298 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ArtworkDetail"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  artwork_save_state_api_artworks__artwork_id__saved_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        artwork_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArtworkSaveState"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  favorite_artwork_api_artworks__artwork_id__favorite_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        artwork_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FavoriteInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArtworkSaveState"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  saved_collection_pages_api_collections_get: {
+    parameters: {
+      query?: {
+        page?: number;
+        page_size?: number;
+        q?: string;
+        sort?: "name" | "count";
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SavedCollectionList"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_saved_collection_api_collections_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateCollectionInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SavedCollectionView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  saved_collection_detail_api_collections__collection_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        collection_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SavedCollectionView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_saved_collection_api_collections__collection_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        collection_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  rename_saved_collection_api_collections__collection_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        collection_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CollectionNameInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SavedCollectionView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_to_saved_collection_api_collections__collection_id__artworks__artwork_id__put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        collection_id: string;
+        artwork_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArtworkSaveState"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  remove_from_saved_collection_api_collections__collection_id__artworks__artwork_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        collection_id: string;
+        artwork_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArtworkSaveState"];
         };
       };
       /** @description Validation Error */
@@ -2514,6 +3175,8 @@ export interface operations {
     parameters: {
       query?: {
         q?: string;
+        favorite?: boolean | null;
+        collection_id?: string | null;
         artist?: string | null;
         tag_id?: number | null;
         tag?: string[];
@@ -2729,6 +3392,8 @@ export interface operations {
     parameters: {
       query?: {
         q?: string;
+        favorite?: boolean | null;
+        collection_id?: string | null;
         artist?: string | null;
         tag_id?: number | null;
         tag?: string[];
@@ -2844,6 +3509,8 @@ export interface operations {
     parameters: {
       query?: {
         q?: string;
+        favorite?: boolean | null;
+        collection_id?: string | null;
         artist?: string | null;
         tag_id?: number | null;
         tag?: string[];

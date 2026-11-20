@@ -1,0 +1,34 @@
+# Optional Playwright login browser. All control/display traffic goes through
+# Pixchive's authenticated HTTP/WebSocket endpoints; no helper ports are published.
+services:
+  web:
+    environment:
+      PIXCHIVE_BROWSER_URL: http://pixiv-browser:8765
+      PIXCHIVE_BROWSER_REFRESH_SECONDS: ${PIXCHIVE_BROWSER_REFRESH_SECONDS:-600}
+
+  worker:
+    environment:
+      PIXCHIVE_BROWSER_URL: http://pixiv-browser:8765
+      PIXCHIVE_BROWSER_REFRESH_SECONDS: ${PIXCHIVE_BROWSER_REFRESH_SECONDS:-600}
+
+  pixiv-browser:
+    build: ./browser_helper
+    image: ${PIXCHIVE_BROWSER_IMAGE:-pixchive-browser:local}
+    restart: unless-stopped
+    init: true
+    environment:
+      PIXCHIVE_KEY_FILE: /run/pixchive-secrets/credential.key
+      PIXCHIVE_BROWSER_MANAGED_NAVIGATION: "1"
+    volumes:
+      - pixchive-browser-state:/state
+      - ./secrets/credential.key:/run/pixchive-secrets/credential.key:ro
+    tmpfs:
+      - /run/browser:rw,nosuid,nodev,size=512m,uid=1000,gid=1000,mode=0700
+      - /tmp:mode=1777,size=256m
+    shm_size: 512mb
+    stop_grace_period: 60s
+    security_opt:
+      - seccomp=./browser_helper/vendor/seccomp_profile.json
+
+volumes:
+  pixchive-browser-state:

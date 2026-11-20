@@ -7,7 +7,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { LocalImage } from "./Common";
+import { ViewerImage } from "./Common";
 import { ko } from "../i18n/ko";
 
 export function FullscreenViewer({
@@ -164,7 +164,7 @@ export function FullscreenViewer({
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
           }}
         >
-          <LocalImage key={src} src={src} alt={title} />
+          <ViewerImage src={src} alt={title} />
         </div>
       </div>
       {controls}

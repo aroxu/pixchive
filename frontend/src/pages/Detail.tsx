@@ -1,5 +1,10 @@
 import { Button, Input, Label, TextField } from "@heroui/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -11,7 +16,8 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, newIdempotencyKey, type Models } from "../api/client";
-import { ErrorState, Loading, LocalImage } from "../components/Common";
+import { ErrorState, Loading, ViewerImage } from "../components/Common";
+import { SwipeViewer } from "../components/SwipeViewer";
 import {
   libraryPosition,
   listingContext,
@@ -24,6 +30,7 @@ import { LocalMetadata } from "../components/LocalMetadata";
 import { ArtworkFiles } from "../components/ArtworkFiles";
 import { ArtworkInformation } from "../components/ArtworkInformation";
 import { useArtworkTagEdit } from "../hooks/useArtworkTagEdit";
+import { ArtworkSaveActions } from "../components/ArtworkSaveActions";
 import {
   ArtworkActions,
   ArtworkFacts,
@@ -46,10 +53,29 @@ export function Detail() {
       api<Models["ArtworkNeighbors"]>(
         `/artworks/${id}/neighbors?${requestParams}`,
       ),
+    placeholderData: keepPreviousData,
   });
+  const [page, setPage] = useState(0);
+  const [tag, setTag] = useState("");
+  const [videoError, setVideoError] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const preloaded = useRef<HTMLImageElement[]>([]);
+  const client = useQueryClient();
+  const query = useQuery({
+    queryKey: ["artwork", id],
+    queryFn: () => api<Models["ArtworkDetail"]>(`/artworks/${id}`),
+    // Keep the current work on screen while the next one loads.
+    placeholderData: keepPreviousData,
+    refetchInterval: (query) =>
+      query.state.data?.kind === "ugoira" &&
+      query.state.data.conversion_state !== "ready"
+        ? 3000
+        : false,
+  });
+  const switching = query.isPlaceholderData || neighbors.isPlaceholderData;
   const moveWork = (direction: "previous" | "next") => {
     const target = neighbors.data?.[direction];
-    if (!target || !neighbors.data?.position) return;
+    if (!target || !neighbors.data?.position || switching) return;
     const position = neighbors.data.position + (direction === "next" ? 1 : -1);
     const targetPage = Math.ceil(
       position / Number(filters.get("page_size") ?? 24),
@@ -67,29 +93,15 @@ export function Detail() {
       state: { from: targetFrom, directoryFrom: location.state?.directoryFrom },
     });
   };
-  const [page, setPage] = useState(0);
-  const [tag, setTag] = useState("");
-  const [videoError, setVideoError] = useState(false);
-  const dialog = useRef<HTMLDialogElement>(null);
-  const client = useQueryClient();
-  const query = useQuery({
-    queryKey: ["artwork", id],
-    queryFn: () => api<Models["ArtworkDetail"]>(`/artworks/${id}`),
-    refetchInterval: (query) =>
-      query.state.data?.kind === "ugoira" &&
-      query.state.data.conversion_state !== "ready"
-        ? 3000
-        : false,
-  });
   const convert = useMutation({
-    mutationFn: () =>
-      api<Models["JobView"]>(`/artworks/${id}/convert`, {
+    mutationFn: (artworkId: string) =>
+      api<Models["JobView"]>(`/artworks/${artworkId}/convert`, {
         method: "POST",
         headers: { "Idempotency-Key": newIdempotencyKey() },
       }),
-    onSuccess: () => {
+    onSuccess: (_job, artworkId) => {
       setVideoError(false);
-      void client.invalidateQueries({ queryKey: ["artwork", id] });
+      void client.invalidateQueries({ queryKey: ["artwork", artworkId] });
       void client.invalidateQueries({ queryKey: ["jobs"] });
     },
   });
@@ -97,11 +109,34 @@ export function Detail() {
     if (request.action === "add" && request.artwork_ids.includes(id ?? ""))
       setTag((current) => (current === request.name ? "" : current));
   });
+  // A newly opened detail starts at the top; moving between works keeps the
+  // reader's position because this component stays mounted.
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  // Reset the page only once the next work is actually displayed.
+  const shownId = query.data?.id;
+  const [pageOwner, setPageOwner] = useState(shownId);
+  if (pageOwner !== shownId) {
+    setPageOwner(shownId);
     setPage(0);
     setVideoError(false);
-    window.scrollTo(0, 0);
-  }, [id]);
+  }
+  const pages = query.data?.pages;
+  useEffect(() => {
+    if (!pages) return;
+    // Media is never stored on disk; pages decoded in this document are reused
+    // when the reader turns to them, so a page turn swaps without a gap.
+    preloaded.current = [pages[page + 1], pages[page - 1]]
+      .filter((item) => item !== undefined)
+      .map((item) => {
+        const image = new Image();
+        image.decoding = "async";
+        image.src = item.url;
+        void image.decode().catch(() => undefined);
+        return image;
+      });
+  }, [pages, page]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (
@@ -110,7 +145,7 @@ export function Detail() {
         e.target instanceof HTMLVideoElement ||
         e.target instanceof HTMLSelectElement ||
         (e.target instanceof HTMLElement && e.target.isContentEditable) ||
-        dialog.current?.open
+        document.querySelector("dialog[open]")
       )
         return;
       if (e.key === "ArrowLeft") {
@@ -132,6 +167,19 @@ export function Detail() {
     );
   const artwork = query.data;
   const image = artwork.pages[page];
+  // The tallest page decides one frame for the whole work (capped by CSS).
+  const frameRatio = artwork.pages.reduce<number | undefined>(
+    (tallest, item) =>
+      item.width > 0 && item.height > 0
+        ? Math.max(tallest ?? 0, item.height / item.width)
+        : tallest,
+    undefined,
+  );
+  const showingVideo = Boolean(artwork.playback_url && !videoError);
+  const turnPage = (direction: 1 | -1) =>
+    setPage((p) =>
+      Math.max(0, Math.min(artwork.pages.length - 1, p + direction)),
+    );
   const controls = (
     <div className="viewer-controls">
       <Button
@@ -183,7 +231,7 @@ export function Detail() {
         <div className="work-navigation" aria-label={ko.library}>
           <Button
             variant="secondary"
-            isDisabled={!neighbors.data?.previous}
+            isDisabled={switching || !neighbors.data?.previous}
             onPress={() => moveWork("previous")}
           >
             <ChevronLeft size={16} />
@@ -196,7 +244,7 @@ export function Detail() {
           )}
           <Button
             variant="secondary"
-            isDisabled={!neighbors.data?.next}
+            isDisabled={switching || !neighbors.data?.next}
             onPress={() => moveWork("next")}
           >
             {ko.nextWork}
@@ -213,13 +261,13 @@ export function Detail() {
       {neighbors.data?.position === null && (
         <p className="notice">{ko.outsideResults}</p>
       )}
-      <div className="detail-layout">
+      <div className="detail-layout" aria-busy={switching} inert={switching}>
         <section className="viewer">
           <div className="viewer-image">
-            {artwork.playback_url && !videoError ? (
+            {showingVideo ? (
               <video
                 key={artwork.playback_url}
-                src={artwork.playback_url}
+                src={artwork.playback_url ?? undefined}
                 poster={artwork.thumbnail_url ?? undefined}
                 controls
                 loop
@@ -228,26 +276,43 @@ export function Detail() {
                 aria-label={`${artwork.title} ${ko.playAnimation}`}
                 onError={() => setVideoError(true)}
               />
+            ) : artwork.pages.length > 1 ? (
+              <SwipeViewer
+                key={artwork.id}
+                pages={artwork.pages}
+                page={page}
+                title={artwork.title}
+                frameRatio={frameRatio}
+                onTurn={turnPage}
+              />
             ) : (
-              <>
-                <LocalImage
-                  key={image?.url}
-                  src={image?.url ?? artwork.thumbnail_url}
-                  alt={artwork.title}
-                />
+              <ViewerImage
+                key={artwork.id}
+                src={image?.url ?? artwork.thumbnail_url}
+                alt={artwork.title}
+                width={image?.width}
+                height={image?.height}
+                frameRatio={frameRatio}
+              />
+            )}
+          </div>
+          {(artwork.kind !== "ugoira" || !showingVideo) && (
+            <div className="viewer-actions">
+              {artwork.kind !== "ugoira" && controls}
+              {!showingVideo && (
                 <Button
                   className="zoom-button"
                   variant="secondary"
-                  isIconOnly
+                  size="sm"
                   aria-label={ko.zoom}
                   onPress={() => dialog.current?.showModal()}
                 >
                   <Maximize size={18} />
+                  {ko.zoom}
                 </Button>
-              </>
-            )}
-          </div>
-          {artwork.kind !== "ugoira" && controls}
+              )}
+            </div>
+          )}
           {videoError && (
             <p className="notice" role="status">
               {ko.playbackFailed}
@@ -259,6 +324,7 @@ export function Detail() {
           <h1 id="artwork-title" tabIndex={-1}>
             {artwork.title}
           </h1>
+          <ArtworkSaveActions artwork={artwork} />
           <Link className="detail-artist" to={`/artists/${artwork.artist_id}`}>
             {artwork.artist_avatar_url && (
               <img
@@ -306,7 +372,7 @@ export function Detail() {
                     !artwork.archive_url ||
                     artwork.conversion_state === "running"
                   }
-                  onPress={() => convert.mutate()}
+                  onPress={() => convert.mutate(artwork.id)}
                 >
                   {ko.createPlayback}
                 </Button>

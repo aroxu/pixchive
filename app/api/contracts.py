@@ -12,10 +12,12 @@ class Input(BaseModel):
 
 class Login(Input):
     username: str = Field(min_length=1, max_length=64)
-    password: str = Field(min_length=12, max_length=256)
+    # Any wrong password gets the same login error; the length rule applies at setup.
+    password: str = Field(min_length=1, max_length=256)
 
 
 class Setup(Login):
+    password: str = Field(min_length=12, max_length=256)
     setup_token: str = Field(min_length=16, max_length=256)
 
 
@@ -39,6 +41,26 @@ class Account(BaseModel):
     credential_kind: str | None
 
 
+class BrowserStatus(BaseModel):
+    enabled: bool
+    state: Literal[
+        "disabled",
+        "starting",
+        "connected",
+        "reauthenticating",
+        "needs_login",
+        "awaiting_confirmation",
+        "unavailable",
+        "error",
+    ]
+    last_checked: int | None
+    last_synced: int | None
+    auto_reauth: bool
+    login_pending: bool = False
+    view_available: bool
+    message_code: str | None
+
+
 class ArtworkSummary(BaseModel):
     id: str
     title: str
@@ -51,6 +73,8 @@ class ArtworkSummary(BaseModel):
     collected_at: int
     created_at: str | None
     is_fixture: bool
+    favorite: bool
+    collection_count: int
     thumbnail_url: str | None
     width: int | None
     height: int | None
@@ -58,6 +82,37 @@ class ArtworkSummary(BaseModel):
 
 class ArtworkList(BaseModel):
     items: list[ArtworkSummary]
+    total: int
+    page: int
+    page_size: int
+
+
+class FavoriteInput(Input):
+    favorite: bool = Field(strict=True)
+
+
+class ArtworkSaveState(BaseModel):
+    favorite: bool
+    collection_ids: list[str]
+
+
+class CollectionNameInput(Input):
+    name: str = Field(min_length=1, max_length=100)
+
+
+class CreateCollectionInput(CollectionNameInput):
+    artwork_id: PixivId | None = None
+
+
+class SavedCollectionView(BaseModel):
+    id: str
+    name: str
+    artwork_count: int
+    created_at: int
+
+
+class SavedCollectionList(BaseModel):
+    items: list[SavedCollectionView]
     total: int
     page: int
     page_size: int
@@ -95,6 +150,8 @@ class FileView(BaseModel):
     height: int
     media_type: str
     provenance: str | None
+    # True for the newest kept revision; False for an earlier copy kept after a change.
+    current: bool
     url: str | None
     download_name: str
 
@@ -413,6 +470,8 @@ class ScheduleView(BaseModel):
     full_refresh_days: int
     metadata_refresh_days: int
     request_interval_ms: int
+    # Artwork information lookups allowed per minute (bookmark lists and images are free).
+    artworks_per_minute: int
     next_run_at: int | None
     next_mode: Literal["normal", "full"]
     last_run_at: int | None
@@ -429,6 +488,7 @@ class ScheduleInput(Input):
     full_refresh_days: int | None = Field(default=None, ge=0, le=90)
     metadata_refresh_days: int | None = Field(default=None, ge=1, le=365)
     request_interval_ms: int | None = Field(default=None, ge=250, le=10000)
+    artworks_per_minute: int | None = Field(default=None, ge=1, le=60)
 
 
 class FileUsage(BaseModel):

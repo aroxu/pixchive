@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly Pixchive NFS TRIAL backup
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=30s
+Unit=pixchive-backup.service
+
+[Install]
+WantedBy=timers.target

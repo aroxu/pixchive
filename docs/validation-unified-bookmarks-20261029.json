@@ -1,0 +1,147 @@
+{
+  "recorded_at_kst": "2026-10-29T00:50:19.5632836+09:00",
+  "request": "Unify favorites with saved lists; responsive pickers and create FAB; small bookmark icon; cover-centered cards and external expand control",
+  "deployment": {
+    "url": "http://localhost:8000",
+    "image": "pixchive:unified-bookmarks-20261029",
+    "image_id": "sha256:5cb2ceac310e2d4575a8d011389391a125c3db4381aa19fb2d0ce1a3d1f44cfc",
+    "runtime_alias": "pixchive:local",
+    "only_web_recreated": true,
+    "worker_browser_redis_container_ids_preserved": true,
+    "archiver_v10_not_updated": true,
+    "schema": 11,
+    "additional_migrations": false
+  },
+  "behavior": {
+    "default_favorites_collection_is_fixed": true,
+    "prior_favorites_and_custom_memberships_reused": true,
+    "legacy_favorites_url_preserves_query": true,
+    "single_bookmark_action": true,
+    "desktop_center_modal": true,
+    "mobile_bottom_sheet": true,
+    "new_collection_via_fab": true,
+    "fab_clears_search_and_page_on_success": true,
+    "fab_preserves_sort": true,
+    "card_button_background": "transparent",
+    "card_button_border": "0px",
+    "card_wrapper_padding": "0px",
+    "card_image_object_fit": "cover",
+    "card_image_object_position": "50% 50%",
+    "detail_image_fit": "contain",
+    "expand_control_outside_image": true
+  },
+  "verification": {
+    "frontend_tests": 6,
+    "typecheck": "passed",
+    "production_build": "passed",
+    "prettier": "passed",
+    "openapi_image_matches_docs": true,
+    "backend_unchanged_since_rollback_test_count": 557,
+    "backend_ruff_files": 94,
+    "local_data": {
+      "checked_at_utc": "2026-10-28T15:48:44Z",
+      "quick_check": "ok",
+      "foreign_key_errors": 0,
+      "schema": 11,
+      "asset_count": 261,
+      "artwork_count": 29,
+      "fixture_artwork_count": 0,
+      "preserved_tables": {
+        "asset": true,
+        "artwork": true,
+        "admin_user": true,
+        "pixiv_account": false,
+        "saved_collection": true,
+        "saved_collection_artwork": true
+      },
+      "changed_pixiv_account_fields": [
+        "validated_at"
+      ],
+      "key_preserved": true,
+      "changed_setting_keys": [
+        "pixiv_browser_state",
+        "worker_heartbeat"
+      ]
+    },
+    "pixiv_account_identity_and_credentials_preserved": true,
+    "changed_pixiv_account_fields": [
+      "validated_at"
+    ],
+    "real_archive_not_modified_by_ui_tests": true
+  },
+  "browser_checks": {
+    "safe_synthetic_artworks": 6,
+    "prior_favorite_and_custom_list_preserved": true,
+    "pick_add_remove_create_checked": true,
+    "legacy_redirect_and_scope_checked": true,
+    "focus_return_checked": true,
+    "viewport_sizes": [
+      {
+        "height": 900,
+        "width": 1280
+      },
+      {
+        "height": 844,
+        "width": 390
+      },
+      {
+        "height": 480,
+        "width": 390
+      }
+    ],
+    "desktop_picker_width": 560,
+    "desktop_create_dialog_width": 440,
+    "mobile_sheet_width": 390,
+    "mobile_sheet_bottom": 844,
+    "horizontal_overflow": false,
+    "fab_bottom": 760,
+    "mobile_navigation_top": 772.15625,
+    "empty_name_blocked": true,
+    "duplicate_name_error_checked": true,
+    "cancel_resets_input_and_error": true,
+    "pc_and_mobile_creation_succeeded": true,
+    "card_portrait_images_loaded": 4,
+    "card_landscape_images_loaded": 2,
+    "expand_open_close_and_page_change_checked": true,
+    "actual_admin_ui_checked_without_saving_test_lists": true
+  },
+  "packaging": {
+    "primary_dockerfile_build": "blocked by upstream Debian package SHA-256 mismatch",
+    "integrity_checks_bypassed": false,
+    "offline_overlay_build": "passed",
+    "base_runtime_image_id": "sha256:163617935e3d14f77297ea4427b0d3d6ddf91351f65f4fac7c4be2ab5d2968e8",
+    "pyproject_and_lock_hashes_match_base": true
+  },
+  "cleanup": {
+    "qa_containers_removed": true,
+    "qa_networks_removed": true,
+    "viewport_override_reset": true,
+    "fixture_artworks_in_real_database": 0,
+    "private_snapshot_retained": ".test-data/unified-bookmarks-20261029/private"
+  },
+  "screenshots": [
+    "bookmarks-picker-mobile-20261029.jpg",
+    "pixchive-card-cover-20261029.jpg",
+    "pixchive-detail-toolbar-20261029.jpg",
+    "pixchive-detail-toolbar-mobile-20261029.jpg",
+    "pixchive-collections-fab-local-20261029.jpg",
+    "pixchive-create-collection-mobile-20261029.jpg"
+  ],
+  "source_sha256": {
+    "frontend/src/api/library.ts": "1eb01df034f438c991e6807d6878d224cac56003102729ad0a15782761fc8415",
+    "frontend/src/components/ArtworkSaveActions.tsx": "71fb75e68aca5422ef90ab57b85190d4d5062c16c4591933b87bb2aaab924479",
+    "frontend/src/components/Shell.tsx": "9268b3e2996fce0c35c5d47f05c252dfc28cdcd5990ae9bdafb6136f00d18acf",
+    "frontend/src/pages/SavedCollections.tsx": "b2bb3ae9a220fed5ffaa17c12e2535aeed2a5347d7ae54e9b66d07f1e21c7df3",
+    "frontend/src/pages/Detail.tsx": "15dd7e566cce8b7e41e4ec76fc6886cdbb5ac995cb216719c9caf6328c758cd5",
+    "frontend/src/main.tsx": "5da0586dc42657789587cfd49a08c4182b6092ea3ab6c3ebcc08be4e0ad50bda",
+    "frontend/src/i18n/ko.ts": "9bbb5e5cba601865c8c91487748f0f2da8bdc418bdde60d01a84c39e4f3112b4",
+    "frontend/src/styles/saved-collections.css": "ef123adb9ffc13c133a20a5a39cf97edebc1b22669f409982558762830bf949c",
+    "frontend/src/styles/app.css": "26debbc55cfd0e4808ff1f061900a92b4e3058ecdd88278034aa103c53608cf2",
+    "frontend/tests/saved-lists.test.ts": "a794c172e3d38742bf5b6f651a5a872372bd108f53a000654061916c82508401"
+  },
+  "limits": [
+    "Local UI update only; archiver remains on the schema-v10 sequential collection image",
+    "No physical-touch keyboard or full-product E2E certification",
+    "No backend/API/schema behavior changed for this UI update"
+  ]
+}

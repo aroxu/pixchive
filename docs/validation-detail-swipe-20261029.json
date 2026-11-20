@@ -1,0 +1,140 @@
+{
+  "recorded_on_kst": "2026-10-29",
+  "request": "Turn the images of one work with a swipe gesture on mobile",
+  "behavior": {
+    "applies_to": "Multi-page works on the detail page; single-page works and ugoira video keep the existing view",
+    "track": "Previous, current and next pages sit side by side in one frame, so the neighbour follows the finger",
+    "input": "Touch and pen only; mouse keeps the buttons and arrow keys",
+    "direction_lock_px": 10,
+    "vertical_drag": "Released to page scrolling",
+    "turn_threshold": "More than 20% of the frame width, or a flick of more than 30px faster than 0.35px/ms over the last 100ms",
+    "flick_back_cancels_long_drag": true,
+    "edge_resistance": "1/4 of the drag on the first and last page",
+    "settle_ms": 220,
+    "second_finger": "Cancels the swipe and leaves pinch zoom to the browser",
+    "pinch_zoomed_page": "touch-action auto, so one finger pans the zoomed view",
+    "button_or_key_during_animation": "The pending swipe is dropped, so the page moves once",
+    "hidden_neighbours": "inert and aria-hidden",
+    "pointer_capture": "The image's implicit touch capture is handed to the track; the image's bubbling lostpointercapture does not end the swipe",
+    "unchanged": [
+      "Work-wide frame height",
+      "Scroll position on page turn",
+      "Fullscreen viewer swipe",
+      "Single-page and ugoira display",
+      "Mouse behaviour"
+    ]
+  },
+  "verification_input": "Chrome touch emulation in the in-app browser turned mouse input into touches; the page received trusted (isTrusted) touch pointer events that went through touch-action handling. Direct CDP touch dispatch and synthesized gestures are blocked in the in-app browser",
+  "observed_capture_handover": [
+    "pointerdown IMG",
+    "gotpointercapture IMG",
+    "lostpointercapture IMG",
+    "gotpointercapture track",
+    "pointerup track",
+    "lostpointercapture track"
+  ],
+  "mobile": {
+    "viewport": [
+      390,
+      844
+    ],
+    "frame_width_px": 335,
+    "left_swipe_200px": "2 -> 3",
+    "right_swipe_210px": "3 -> 2",
+    "slow_40px_drag": "Stayed on 2 and re-centred",
+    "quick_60px_flick": "2 -> 3",
+    "vertical_drag": {
+      "page": "3 / 35 unchanged",
+      "scroll_y": [
+        0,
+        382
+      ]
+    },
+    "first_page_right_drag_120px": {
+      "offset_px": 30,
+      "page": "1 / 35 unchanged"
+    },
+    "last_page_left_drag_120px": {
+      "offset_px": -30,
+      "page": "35 / 35 unchanged"
+    },
+    "mid_drag_offset_px": -135,
+    "previous_button_during_turn": "35 -> 34 once",
+    "consecutive_next_button_turns": 33,
+    "fullscreen": {
+      "swipe": "34 -> 33",
+      "detail_after_close": "33 / 35"
+    },
+    "pinch_zoomed_page_scale_2": {
+      "visual_viewport_offset_left": [
+        0,
+        195
+      ],
+      "page": "33 / 35 unchanged",
+      "touch_action_after_reset": "pan-y pinch-zoom"
+    },
+    "single_page_work": {
+      "swipe_track": false,
+      "page": "1 / 1",
+      "buttons_disabled": true,
+      "horizontal_drag": "No change"
+    },
+    "max_scroll_mixed_orientation": {
+      "pages": [
+        "20 portrait",
+        "21 landscape",
+        "22 portrait",
+        "21",
+        "20"
+      ],
+      "scroll_y": 398,
+      "document_height_px": 1242,
+      "viewer_height_px": 551,
+      "controls_top_px": 368
+    },
+    "horizontal_overflow": false,
+    "console_errors_and_warnings": 0
+  },
+  "desktop": {
+    "viewport": [
+      1280,
+      720
+    ],
+    "touch_swipe": "1 -> 2",
+    "mouse_drag_250px": "1 / 5 unchanged"
+  },
+  "verification": {
+    "frontend_tests": 6,
+    "typecheck": "passed",
+    "production_build": "passed",
+    "prettier": "passed",
+    "backend_changed": false
+  },
+  "deployment": {
+    "url": "http://localhost:8000",
+    "image": "pixchive:detail-swipe-20261029",
+    "image_id": "sha256:4b4f2a5d88d21e3bf9293fb86a84e28d062b8969bec3d19d9655477c2dd4556c",
+    "base_image": "pixchive:detail-scroll-20261029",
+    "web_only_recreated": true,
+    "worker_browser_redis_preserved": true,
+    "health": 200,
+    "database_quick_check": "ok",
+    "foreign_key_errors": 0,
+    "schema": 11,
+    "artworks": 29,
+    "assets": 261,
+    "fixture_artworks": 0,
+    "archiver_unchanged": true
+  },
+  "cleanup": [
+    "Touch emulation disabled",
+    "Viewport override reset",
+    "Test tabs closed"
+  ],
+  "limits": [
+    "Not checked on a physical phone or iOS Safari",
+    "A two-finger pinch was not performed; the zoomed state was reproduced with page scale 2",
+    "Pages already open before the deployment need a refresh"
+  ],
+  "screenshot": "C:/Users/zeus8/.codex/visualizations/2026/10/25/01a173b8-805a-7022-835b-257894f3147a/detail-swipe-mid-mobile-20261029.png"
+}

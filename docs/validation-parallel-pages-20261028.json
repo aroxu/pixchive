@@ -1,0 +1,97 @@
+{
+  "checked_at_utc": "2026-10-28T02:58:53Z",
+  "deployment": {
+    "host": "archiver",
+    "url": "http://archiver:28000",
+    "app_image": "pixchive:archiver-parallel-pages-20261028",
+    "image_id": "sha256:e70046246858217f5d7bf57fdfd22d14c0f1791fc1864539c9efdb1310f57ee3",
+    "base_image": "pixchive:archiver-jobs-first-20261028",
+    "schema_version": 10,
+    "favorites_v11_included": false,
+    "runtime_files_changed": ["app/services/collection.py", "app/adapters/pixiv/transport.py"],
+    "source_hashes": {
+      "app/services/collection.py": "f254b54a20dbd78eec08a30558934fcdd52b5f9621aa9a7daab0a80fb55d58e3",
+      "app/adapters/pixiv/transport.py": "1810579e824bf2cb726daa4a85a1e0c895df15a81592971f2a014493724455c7"
+    },
+    "image_archive_sha256": "2beffde17180a38cde07516c9a239a2971edced61a28e03da785ce1b1c4e47d1",
+    "source_patch_archive_sha256": "010b43a946de9aaf18fd4affd46694c1d0918d1a3998ee2baf9e0d10d6c5f602",
+    "transfer_hashes_verified": true,
+    "web_and_worker_same_image": true,
+    "helper_and_redis_preserved": true,
+    "host_cache": "/cache/pixchive",
+    "container_cache": "/cache",
+    "nas_archive_root": "/mnt/storage/pixchive/data",
+    "private_evidence_directory": "/mnt/storage/pixchive/releases/parallel-pages-20261028"
+  },
+  "behavior": {
+    "max_parallel_image_pages_per_artwork": 3,
+    "max_buffered_results_per_group": 3,
+    "lower_window_when_space_is_tight": true,
+    "publication": "serial cache writes and verified atomic NAS publication",
+    "shared_429_cooldown": "new requests, redirects, retries",
+    "credentials_stripped_from_media_requests": true,
+    "hourly_full_backup_preserved": true
+  },
+  "local_verification": {
+    "worktree_backend_passed": 498,
+    "worktree_ruff_files": 90,
+    "v10_release_backend_passed": 486,
+    "v10_release_ruff_files": 88,
+    "ruff_lint_and_format": "passed",
+    "docker_build": "passed",
+    "built_image_openapi": "matched unchanged contract",
+    "frontend_changed_or_rebuilt": false,
+    "three_simultaneous_response_body_reads": "passed",
+    "shared_cooldown_and_cancellation": "passed",
+    "artwork_boundary_and_space_fallback": "passed",
+    "pause_cancel_credentials_disk_full_tombstone_reuse": "passed",
+    "production_credentials_in_qa": false
+  },
+  "runtime_verification": {
+    "database_quick_check": "ok",
+    "foreign_key_errors": 0,
+    "preexisting_asset_records_preserved": 21887,
+    "admin_and_key_preserved": true,
+    "changed_setting_keys": ["worker_heartbeat"],
+    "web_health": "healthy",
+    "normal_collection_processed_before": 18746,
+    "normal_collection_processed_at_file_verification": 18805,
+    "normal_collection_failed": 0,
+    "scheduled_full_collection_state": "queued",
+    "new_ready_assets": 72,
+    "new_ready_roles": {"original": 59, "thumbnail": 13},
+    "new_nas_files_hash_verified": 20,
+    "new_nas_bytes_hash_verified": 26221085,
+    "network_observation_seconds": 55.08,
+    "peak_https_connections_including_metadata": 4,
+    "peak_receiving_connections_in_one_interval": 2,
+    "intervals_with_multiple_receiving_connections": 10
+  },
+  "backup_followup": {
+    "prior_hourly_backup": "incomplete: one staged thumbnail missing from NAS and mirror",
+    "originals_affected": false,
+    "repair_method": "existing preview job using verified stored original",
+    "repair_job": "succeeded",
+    "same_thumbnail_asset_and_hash_preserved": true,
+    "repaired_thumbnail_bytes": 56428,
+    "originals_hash_verified_before_and_after": 14,
+    "original_bytes_hash_verified": 85703438,
+    "incomplete_snapshot_preserved": true,
+    "hourly_timer": "active",
+    "next_full_backup_completion": "next scheduled run started; completion not yet verified"
+  },
+  "cleanup": {
+    "qa_containers_removed": 2,
+    "synthetic_records_added_to_archiver": 0,
+    "local_release_artifacts_retained": true,
+    "prior_deletion_policy_bypass_attempted": false
+  },
+  "limits": [
+    "Runtime socket observations show multiple receiving connections, not exact request-level overlap timestamps.",
+    "Three simultaneous body reads and the limit were verified in isolated automated tests.",
+    "Full account collection and end-to-end speedup have not been verified.",
+    "Actual long-running expiry, 429 and disk-exhaustion recovery were not exercised on production.",
+    "The next hourly full backup completion remains to be verified.",
+    "The existing user-authorized NAS database trial remains unsupported by SQLite WAL."
+  ]
+}

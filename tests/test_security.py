@@ -149,6 +149,30 @@ def test_setup_refuses_wrong_secret(client):
     assert client.get("/api/session").json()["setup_required"]
 
 
+def test_short_setup_password_gets_specific_message(client):
+    response = client.post(
+        "/api/setup",
+        json={
+            "username": "admin",
+            "password": "short-pass",
+            "setup_token": "synthetic-setup-token-for-tests",
+        },
+    )
+    assert response.status_code == 422
+    assert response.json() == {
+        "code": "password_too_short",
+        "message": "비밀번호는 12자 이상으로 입력해 주세요.",
+    }
+    assert "short-pass" not in response.text
+    assert client.get("/api/session").json()["setup_required"]
+
+
+def test_short_login_password_is_just_a_wrong_password(admin):
+    assert admin.delete("/api/session").status_code == 204
+    response = admin.post("/api/session", json={"username": "admin", "password": "short"})
+    assert (response.status_code, response.json()["code"]) == (401, "invalid_credentials")
+
+
 def test_csrf_and_origin_required(admin):
     assert (
         admin.patch(

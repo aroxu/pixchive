@@ -55,6 +55,10 @@ class JobQuery(PageQuery):
 
 class ArtworkQuery(BaseModel):
     q: str = Field(default="", max_length=300)
+    favorite: bool | None = None
+    collection_id: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
     artist: str | None = Field(default=None, pattern=r"^[0-9]{1,20}$")
     tag_id: int | None = Field(default=None, ge=1, le=9_223_372_036_854_775_807)
     tag: list[TagName] = Field(default_factory=list, max_length=20)

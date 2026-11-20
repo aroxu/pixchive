@@ -1,0 +1,97 @@
+{
+  "checked_at_utc": "2026-10-28T06:20:58.983525+00:00",
+  "deployment": {
+    "host": "archiver",
+    "url": "http://archiver:28000",
+    "image": "pixchive:archiver-worker-tuning-20261028",
+    "image_id": "sha256:e41a704fb77a6ffdd92a0ef591dfd74e59ed05f05481819eb924887c474e6bc9",
+    "schema": 10,
+    "favorites_included": false,
+    "source_hashes": {
+      "app/services/collection.py": "709a29c39da7536374deb23c226b7299f5816aa1f5ab1004e3c52c9c70f34a05",
+      "app/services/storage.py": "2105c10be288c173ab509c66d50ecaa13498f8cd66398feb0b04ee20248fb2ad",
+      "app/services/previews.py": "aba12b851facc392096b70ebd856d8e694d5109fbd9161eb860a060f637c1038",
+      "app/services/jobs.py": "4400c386bb2a9ed3a426c14f5d07992ddd2cb25c9d9bab4d0c4bb05d72dfb602",
+      "app/worker.py": "d8d4ae3e500c7a289436786274bde4d9dc9a8e40a91d98810f7ec9a35c2b9662"
+    },
+    "archive_hashes": {
+      "image.tar.gz": "f148564d73899c9c0f1bde87cfb1cbf653ca467089c76c38d42c1704ce99c68a",
+      "patch.tar.gz": "a80515bb527d44b16357d8f7e112a38c3de6a0d0d03eeb4c9f9f79088a8bb578"
+    },
+    "private_release_directory": "/mnt/storage/pixchive/releases/worker-tuning-20261028",
+    "hourly_full_backup_preserved": true,
+    "cache_and_nas_paths_unchanged": true
+  },
+  "implementation": {
+    "independent_heartbeat_threads": true,
+    "lease_seconds": 120,
+    "owner_and_resource_fences_checked": true,
+    "stop_join_before_data_access_release": true,
+    "bounded_chunk_progress": true,
+    "keyset_with_final_unrestricted_probe": true,
+    "avatar_nas_workspace_reuse": true,
+    "unchanged_ready_file_checks_read_only": true,
+    "archive_status_only_written_when_changed": true,
+    "bounded_preview_resume_recovery": 100
+  },
+  "verification": {
+    "worktree_backend_passed": 557,
+    "v10_release_backend_passed": 545,
+    "worktree_ruff_files": 94,
+    "release_ruff_files": 92,
+    "docker_build": "passed",
+    "openapi": "matched unchanged contract",
+    "frontend_changed": false,
+    "preexisting_asset_records_preserved": 27160,
+    "admin_and_key_preserved": true,
+    "user_preferences_preserved": true,
+    "automatic_setting_keys_changed": [
+      "worker_heartbeat",
+      "pixiv_browser_state"
+    ],
+    "helper_redis_preserved": true,
+    "db_quick_check": "ok",
+    "foreign_key_errors": 0,
+    "runtime_observed_seconds": 173.13,
+    "lease_expirations_before": 181,
+    "lease_expirations_after": 181,
+    "normal_collection_expirations_before": 111,
+    "max_sampled_heartbeat_age_seconds": 31,
+    "min_sampled_lease_remaining_seconds": 89,
+    "collection_processed_before": 23204,
+    "collection_processed_at_file_verification": 23284,
+    "collection_failed": 0,
+    "browser_processed_observed": 23298,
+    "new_ready_assets": 87,
+    "new_nas_files_hash_checked": 20,
+    "repaired_existing_thumbnails": 2,
+    "originals_of_repaired_artworks_hash_checked": 25,
+    "total_nas_files_hash_checked": 47,
+    "total_nas_bytes_hash_checked": 65634848,
+    "backup_during_observation": "hourly full backup running; completion not yet verified"
+  },
+  "diagnosis": {
+    "initial_normal_collection_lease_expirations": 109,
+    "pending_head_ms_before": [
+      8.3,
+      16.0
+    ],
+    "keyset_same_head_median_ms": 2.66,
+    "separate_download_counts_ms": 22.78,
+    "combined_download_counts_ms": 10.4,
+    "whole_collection_speedup_measured": false,
+    "temporary_profiler_removed": true
+  },
+  "cleanup": {
+    "qa_containers_removed": 3,
+    "synthetic_production_records_added": 0,
+    "local_release_artifacts_retained": true,
+    "prior_deletion_restriction_bypassed": false
+  },
+  "limits": [
+    "Short observation under backup and preview-recovery load does not establish an end-to-end speedup.",
+    "Long-running forced termination and full-account collection remain unverified.",
+    "The active hourly full backup completion is not yet verified.",
+    "Existing user-authorized NAS SQLite WAL trial remains unsupported."
+  ]
+}

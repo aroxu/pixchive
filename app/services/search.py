@@ -25,6 +25,15 @@ def conditions(query: ArtworkQuery, show_sensitive: bool) -> tuple[str, list]:
     params: list = []
     if not show_sensitive:
         clauses.append("a.rating = 'safe'")
+    if query.favorite is not None:
+        clauses.append("a.favorite = ?")
+        params.append(query.favorite)
+    if query.collection_id:
+        clauses.append(
+            "EXISTS (SELECT 1 FROM saved_collection_artwork sca "
+            "WHERE sca.artwork_id=a.id AND sca.collection_id=?)"
+        )
+        params.append(query.collection_id)
     for field, column in (
         ("artist", "artist_id"),
         ("kind", "kind"),

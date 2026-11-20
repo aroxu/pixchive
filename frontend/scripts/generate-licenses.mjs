@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,6 +27,21 @@ for (const [path, entry] of Object.entries(lock.packages).sort(([a], [b]) =>
     )
     .map((file) => file.name)
     .sort();
+  if (metadata.name === "@novnc/novnc") {
+    for (const name of (await readdir(resolve(folder, "docs"))).sort()) {
+      if (/^LICENSE/i.test(name)) licenseFiles.push(`docs/${name}`);
+    }
+    licenseFiles.push("vendor/pako/LICENSE");
+    const source = resolve(root, process.argv[2] ?? "dist", "assets/novnc-source");
+    await mkdir(source, { recursive: true });
+    for (const name of ["core", "vendor", "docs", "AUTHORS", "package.json"]) {
+      await cp(resolve(folder, name), resolve(source, name), { recursive: true });
+    }
+    sections.push(
+      `\nUnmodified noVNC source: /assets/novnc-source/ (version ${metadata.version}).`,
+      "Upstream: https://github.com/novnc/noVNC",
+    );
+  }
   sections.push(`\n${"=".repeat(72)}\n${metadata.name} ${metadata.version}`);
   sections.push(
     `Declared license: ${metadata.license ?? entry.license ?? "See package source"}`,

@@ -1,0 +1,211 @@
+{
+  "recorded_on_kst": "2026-10-29",
+  "request": "Fix every remaining observation from the full E2E run and verify each fix",
+  "data_policy": "Mutating checks ran in isolated Compose projects with synthetic data. The real local install was changed only by replacing web and worker together while no jobs were active, then running one public normal sync from the settings screen.",
+  "changes": {
+    "worker_version": "web and worker replaced together with one image; app/*.py and *.sql (70 files) identical in both containers and the workspace",
+    "file_list_current": "FileView.current (required boolean). Newest original per page plus its linked preview, and the newest ugoira bundle's zip/timing/preview/video are current; a damaged newest file stays current",
+    "damaged_archive_status": "a kept original (ugoira zip/timing) left corrupt/missing/unreadable with no ready file gives partial instead of pending; first downloads and staged writes stay pending",
+    "backup_sessions": "snapshot deletes session and login_attempt rows with secure_delete; restore deletes them too (older backups); admin account and password are kept",
+    "validate_absorb": "a new request (new Idempotency-Key) for an account job held in waiting_auth resumes it; same-key replay returns it unchanged; validate jobs join the automatic resume after a verified login",
+    "short_password": "setup form blocks <12-character passwords and <16-character setup keys with field errors; /api/setup returns 422 password_too_short with a specific message; login answers invalid_credentials regardless of length (OpenAPI Login.password minLength 12 -> 1; no DB schema change)"
+  },
+  "automated": {
+    "backend": {
+      "passed": 564,
+      "previous": 557,
+      "new_tests": 7,
+      "warnings": [
+        "StarletteDeprecationWarning (httpx)",
+        "intentional duplicate ZIP entry fixture"
+      ],
+      "ruff_check": "passed",
+      "ruff_format_files": 94,
+      "network": "disconnected during the run",
+      "seconds": 127.48
+    },
+    "new_tests": [
+      "tests/test_recovery.py::test_file_list_marks_newest_revision_as_current",
+      "tests/test_recovery.py::test_damaged_archive_needs_checking_not_a_first_download",
+      "tests/test_maintenance.py::test_new_validation_request_reruns_validation_held_for_login",
+      "tests/test_maintenance.py::test_verified_login_also_continues_a_held_validation",
+      "tests/test_maintenance.py::test_backups_and_restores_never_carry_browser_logins",
+      "tests/test_security.py::test_short_setup_password_gets_specific_message",
+      "tests/test_security.py::test_short_login_password_is_just_a_wrong_password"
+    ],
+    "updated_test": "tests/test_maintenance.py backup/restore: missing mirror file now expects partial instead of pending",
+    "openapi": "regenerated from the running code; frontend schema.d.ts regenerated",
+    "frontend": {
+      "tests": 6,
+      "typecheck": "passed",
+      "production_build": "passed"
+    },
+    "browser_helper": "unchanged; not rerun"
+  },
+  "isolated_e2e": {
+    "stack": {
+      "project": "pixchive-e2e",
+      "url": "http://127.0.0.1:18080",
+      "backend_identical_to_final_image": true
+    },
+    "setup_short_password": {
+      "password_chars": 10,
+      "field_error": "비밀번호는 12자 이상으로 입력해 주세요.",
+      "request_sent": false,
+      "direct_api": {
+        "status": 422,
+        "code": "password_too_short"
+      }
+    },
+    "setup_fresh_install_18083": {
+      "setup_key_chars": 11,
+      "password_chars": 5,
+      "field_errors": 2,
+      "help_hidden_while_invalid": true,
+      "viewports": [
+        "1280x720",
+        "390x844"
+      ],
+      "horizontal_overflow": 0,
+      "error_clears_after_fix_and_blur": true,
+      "admin_created": false
+    },
+    "validate_absorb": {
+      "held": {
+        "state": "waiting_auth",
+        "account": "auth_expired"
+      },
+      "same_key_replay": "same job, waiting_auth",
+      "new_key_after_login": "same job -> queued -> succeeded",
+      "account_after": "connected"
+    },
+    "revision_change": {
+      "artwork_pages": 2,
+      "files": 6,
+      "current": 3,
+      "previous": 3,
+      "ui_badges": "현재 보관본 / 이전 보관본"
+    },
+    "damaged_file": {
+      "change": "1 byte flipped in a single-page original",
+      "integrity_job": {
+        "state": "partial",
+        "checked": 18,
+        "failed": 1
+      },
+      "artwork_status": "partial",
+      "partial_filter_results": 1,
+      "ui": "일부 파일 확인 필요 (card and detail)",
+      "repair": "succeeded; same record ready; artwork complete; partial filter 0"
+    },
+    "backup": {
+      "live_db": {
+        "sessions": 21,
+        "login_attempts": 1
+      },
+      "new_snapshot": {
+        "sessions": 0,
+        "login_attempts": 0,
+        "admins": 1,
+        "artworks": 5,
+        "assets": 18,
+        "integrity": "ok",
+        "session_digest_bytes": false,
+        "csrf_bytes": false,
+        "mirror": {
+          "copied": 23,
+          "complete": true
+        }
+      },
+      "control_previous_image_snapshot": {
+        "sessions": 21,
+        "session_digest_bytes": true,
+        "csrf_bytes": true
+      }
+    },
+    "restore": {
+      "source": "previous image's snapshot (still holding 21 sessions)",
+      "target": "new volume, project pixchive-e2e-restore, http://127.0.0.1:18084",
+      "restored_files": 23,
+      "missing": 0,
+      "sessions_after": 0,
+      "login_attempts_after": 0,
+      "old_cookie": {
+        "original_install": "authenticated",
+        "restored_install": "not authenticated"
+      },
+      "browser": "login page",
+      "short_login_password": "이름 또는 비밀번호를 확인해 주세요.",
+      "login_with_password": "library with 5 artworks"
+    }
+  },
+  "deployment": {
+    "image": "pixchive:fixes-all-20261029",
+    "image_id": "sha256:b6994e0d537ac9431a16b832804d8550208079b3b6f2244df04fe7be810adce9",
+    "build": "offline overlay on pixchive:e2e-fixes-20261029 replacing app/ and frontend/dist",
+    "before": {
+      "web": "sha256:831ce97f88ced5448b7b0de7faa6279992f99849c1a8aa8248f0cff3811051e3",
+      "worker": "sha256:163617935e3d14f77297ea4427b0d3d6ddf91351f65f4fac7c4be2ab5d2968e8",
+      "active_jobs": 0
+    },
+    "after": {
+      "web_and_worker_image": "sha256:b6994e0d537ac9431a16b832804d8550208079b3b6f2244df04fe7be810adce9",
+      "app_files_identical": 70,
+      "helper_and_redis": "kept running"
+    },
+    "db_check": {
+      "quick_check": "ok",
+      "fk_errors": 0,
+      "schema_version": 11,
+      "artworks": 29,
+      "assets": 261,
+      "assets_ready": 261,
+      "admins": 1,
+      "fixture_artworks": 0,
+      "health": 200,
+      "worker_heartbeat": "updating"
+    }
+  },
+  "real_public_sync": {
+    "started_from": "in-app browser settings, scope 공개, mode 일반 동기화",
+    "window_kst": "2026-10-29 15:54:16 – 15:55:51",
+    "discovered": 40,
+    "added": 11,
+    "changed": 1,
+    "unchanged": 28,
+    "downloads_ready": 88,
+    "failed": 0,
+    "after": {
+      "artworks": 40,
+      "all_complete": true,
+      "assets": 360,
+      "assets_ready": 360,
+      "earlier_revision_pages": 0
+    },
+    "file_list_check": {
+      "artwork": "150521647",
+      "files": 6,
+      "current": 6
+    }
+  },
+  "not_changed": [
+    "archiver (v10) was not updated",
+    "browser_helper",
+    "Redis"
+  ],
+  "limits": [
+    "Auth expiry and file damage were reproduced with synthetic data; a real long Pixiv expiry was not observed",
+    "No real phone or iOS Safari; mobile checks used a 390x844 viewport",
+    "Setup field errors refresh on submit or when leaving the field (React Aria native validation)"
+  ],
+  "screenshots": [
+    "fixall-files-current-previous.png",
+    "fixall-damaged-library.png",
+    "fixall-damaged-detail.png",
+    "fixall-setup-short-password-desktop.png",
+    "fixall-setup-short-password-mobile.png",
+    "fixall-restore-login.png",
+    "fixall-restore-library.png"
+  ],
+  "qa_tools": ".test-data/fixes-all-20261029 (qa-step.mjs, qa-flag.mjs, prod_check.py, prod_sync.py, restore/compose.yml) and .test-data/e2e-20261029/qa/qa_snapshot.py"
+}

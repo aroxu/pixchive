@@ -39,6 +39,10 @@ def main():
             output = {"error": exc.code, "retry_after": exc.retry_after}
         except Exception:
             output = {"error": "contract"}
+        if bridge:
+            rotation = bridge.take_cookie_rotation()
+            if rotation is not None:
+                output["cookie_rotation"] = rotation
         sys.stdout.write(json.dumps(output, ensure_ascii=True) + "\n")
         sys.stdout.flush()
 

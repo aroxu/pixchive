@@ -2,7 +2,8 @@ import hashlib
 import io
 import os
 import re
-from contextlib import nullcontext
+import uuid
+from contextlib import ExitStack, nullcontext
 from pathlib import Path
 
 from peewee import SQL
@@ -19,6 +20,8 @@ from app.services.library import require_artwork
 THUMBNAIL_BOX = (640, 1600)
 MAX_AVATAR_BYTES = 5 * 1024 * 1024
 FILE_STATES = ("ready", "staged", "corrupt", "unreadable")
+# Kept files that later failed verification. They need checking/repair, not a first download.
+DAMAGED_STATES = ("corrupt", "missing", "unreadable")
 
 
 def excluded_error():
@@ -41,6 +44,7 @@ def media_lock(settings: Settings, guard=None):
 def refresh_archive(artwork_id: str):
     a = Artwork.get_by_id(artwork_id)
     if a.kind == "ugoira":
+        archived_roles = ("ugoira_zip", "ugoira_timing")
         archives = {
             x.revision
             for x in Asset.select().where(
@@ -53,25 +57,42 @@ def refresh_archive(artwork_id: str):
                 (Asset.artwork == a) & (Asset.role == "ugoira_timing") & (Asset.state == "ready")
             )
         }
-        a.archive_status = (
+        status = (
             "complete" if archives & timings else "partial" if archives or timings else "pending"
         )
-        a.save()
-        return
-    count = (
-        Asset.select(Asset.page)
+    else:
+        archived_roles = ("original",)
+        count = (
+            Asset.select(Asset.page)
+            .where(
+                (Asset.artwork == a)
+                & (Asset.role == "original")
+                & (Asset.state == "ready")
+                & (Asset.page >= 0)
+                & (Asset.page < a.page_count)
+            )
+            .distinct()
+            .count()
+        )
+        status = "complete" if count == a.page_count else "partial" if count else "pending"
+    if (
+        status == "pending"
+        and Asset.select()
         .where(
             (Asset.artwork == a)
-            & (Asset.role == "original")
-            & (Asset.state == "ready")
+            & Asset.role.in_(archived_roles)
+            & Asset.state.in_(DAMAGED_STATES)
             & (Asset.page >= 0)
             & (Asset.page < a.page_count)
         )
-        .distinct()
-        .count()
-    )
-    a.archive_status = "complete" if count == a.page_count else "partial" if count else "pending"
-    a.save()
+        .exists()
+    ):
+        status = "partial"
+    if status != a.archive_status:
+        # Do not rewrite remote metadata or local edits for an unchanged status.
+        Artwork.update(archive_status=status).where(
+            (Artwork.id == artwork_id) & (Artwork.archive_status != status)
+        ).execute()
 
 
 def store_image(
@@ -178,12 +199,20 @@ def store_blob(
     relative = f"media/{a.artist_id}/{a.id}/{role}/{revision}/p{page:04d}.{extension}"
     destination = safe_path(settings, relative)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with tempfiles.workspace(settings, "blob", guard) as working:
-        tmp_path = working.path / "content.part"
+    with tempfiles.blob_workspace(settings, guard) as working, ExitStack() as cleanup:
+        tmp_path = working.path / f"content-{uuid.uuid4().hex}.part"
         with tmp_path.open("xb") as file:
+            # A borrowed workspace outlives this call. Release unused bytes even
+            # on duplicate reuse, rejected commits, or a failed write/fsync.
+            cleanup.callback(tmp_path.unlink, missing_ok=True)
             file.write(content)
             file.flush()
             os.fsync(file.fileno())
+        publication = (
+            cleanup.enter_context(tempfiles.publication_workspace(settings, guard))
+            if settings.cache_dir is not None
+            else None
+        )
         with media_lock(settings, guard):
             asset = Asset.get_or_none(Asset.path == relative)
             expected = {
@@ -225,7 +254,12 @@ def store_blob(
             if guard:
                 guard()
             if replace:
-                os.replace(tmp_path, destination)
+                publishing = (
+                    _copy_for_publication(tmp_path, publication, len(content), sha, cleanup, guard)
+                    if publication is not None
+                    else tmp_path
+                )
+                os.replace(publishing, destination)
                 sync_directory(destination.parent)
             if after_move:
                 after_move()
@@ -242,12 +276,46 @@ def store_blob(
                         Asset.update(provenance=provenance).where(
                             (Asset.id == asset.id) & Asset.provenance.is_null()
                         ).execute()
-                    refresh_archive(a.id)
+                    if role in ("original", "ugoira_zip", "ugoira_timing"):
+                        refresh_archive(a.id)
             if excluded:
                 destination.unlink(missing_ok=True)
                 sync_directory(destination.parent)
                 raise excluded_error()
             return Asset.get_by_id(asset.id)
+
+
+def _copy_for_publication(source, working, size, sha, cleanup, guard=None):
+    """Copy cache bytes to NAS, verifying actual durable bytes before rename.
+
+    The caller owns the publication workspace before taking the media lock.
+    Blob callers keep that lock here, without a SQLite write transaction.
+    """
+    if guard:
+        guard()
+    if source.stat().st_size != size or hash_file(source) != sha:
+        raise DomainError("integrity_error", "임시 파일의 내용을 확인할 수 없습니다.")
+    publishing = working.path / f"content-{uuid.uuid4().hex}.part"
+    with source.open("rb") as incoming, publishing.open("xb") as outgoing:
+        cleanup.callback(publishing.unlink, missing_ok=True)
+        os.fchmod(outgoing.fileno(), 0o600)
+        copied = 0
+        while chunk := incoming.read(1024 * 1024):
+            if guard:
+                guard()
+            copied += len(chunk)
+            if copied > size:
+                raise DomainError("integrity_error", "임시 파일의 내용을 확인할 수 없습니다.")
+            outgoing.write(chunk)
+        outgoing.flush()
+        os.fsync(outgoing.fileno())
+    if guard:
+        guard()
+    if publishing.stat().st_size != size or hash_file(publishing) != sha:
+        raise DomainError("integrity_error", "보관할 파일의 내용을 확인할 수 없습니다.")
+    if guard:
+        guard()
+    return publishing
 
 
 def hash_file(path: Path) -> str:
@@ -294,6 +362,20 @@ def verify_asset(settings: Settings, asset: Asset, guard=None, *, full_hash=True
         # A previous failure is never cleared by a matching file size alone.
         inspect = inspect_asset if full_hash or current.state != "ready" else quick_check
         state = inspect(settings, current)
+        if state == current.state == "ready":
+            # Immutable bytes already match the ready record. Reuse is read-only;
+            # ownership/deletion still need checking after the file inspection.
+            if guard:
+                guard()
+            if Tombstone.select().where(Tombstone.artwork_id == current.artwork_id).exists():
+                return None
+            if (
+                not Asset.select()
+                .where((Asset.id == current.id) & (Asset.state == "ready"))
+                .exists()
+            ):
+                return None
+            return state
         with db.atomic("IMMEDIATE"):
             if guard:
                 guard()
@@ -477,12 +559,20 @@ def store_avatar(settings: Settings, artist_id: str, content: bytes) -> tuple[st
     destination = avatar_file(settings, relative)
     destination.parent.mkdir(parents=True, exist_ok=True)
     if not destination.exists():
-        with tempfiles.workspace(settings, "avatar") as working:
-            tmp_path = working.path / "content.part"
+        with tempfiles.workspace(settings, "avatar") as working, ExitStack() as cleanup:
+            tmp_path = working.path / f"content-{uuid.uuid4().hex}.part"
             with tmp_path.open("xb") as file:
+                cleanup.callback(tmp_path.unlink, missing_ok=True)
                 file.write(content)
                 file.flush()
                 os.fsync(file.fileno())
-            os.replace(tmp_path, destination)
+            if settings.cache_dir is not None:
+                publication = cleanup.enter_context(tempfiles.publication_workspace(settings))
+                publishing = _copy_for_publication(
+                    tmp_path, publication, len(content), sha, cleanup
+                )
+            else:
+                publishing = tmp_path
+            os.replace(publishing, destination)
             sync_directory(destination.parent)
     return relative, Image.MIME[fmt]

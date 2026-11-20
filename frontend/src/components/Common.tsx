@@ -44,6 +44,63 @@ export function LocalImage({
   );
 }
 
+// Reuses one <img> while its source changes, so the browser keeps the previous
+// picture on screen until the next one is ready. Known page dimensions reserve
+// the final box before loading, which keeps the page height and scroll stable.
+// `frameRatio` (height / width) fixes one frame for every page of a work so
+// portrait and landscape pages share the same height and the controls stay put.
+export function ViewerImage({
+  src,
+  alt,
+  width,
+  height,
+  frameRatio,
+}: {
+  src: string | null;
+  alt: string;
+  width?: number | null;
+  height?: number | null;
+  frameRatio?: number;
+}) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const frame = frameRatio ? { aspectRatio: `1 / ${frameRatio}` } : undefined;
+  if (!src || failedSrc === src)
+    return (
+      <div
+        className={
+          frame ? "image-fallback viewer-image-fallback" : "image-fallback"
+        }
+        style={frame}
+        role="img"
+        aria-label={ko.imageUnavailable}
+      >
+        <ImageOff size={30} />
+        <span>{ko.noPreview}</span>
+      </div>
+    );
+  const sized = Boolean(width && height && width > 0 && height > 0);
+  return (
+    <>
+      <img
+        src={src}
+        alt={alt}
+        width={sized ? (width ?? undefined) : undefined}
+        height={sized ? (height ?? undefined) : undefined}
+        style={frame}
+        decoding="async"
+        onLoad={() => setLoadedSrc(src)}
+        onError={() => setFailedSrc(src)}
+      />
+      {loadedSrc !== src && (
+        <span className="viewer-image-loading" role="status">
+          <Spinner size="sm" aria-label={ko.loading} />
+        </span>
+      )}
+    </>
+  );
+}
+
 function LocalImageSource({
   src,
   alt,

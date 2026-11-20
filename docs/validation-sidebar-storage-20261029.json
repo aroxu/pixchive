@@ -1,0 +1,93 @@
+{
+  "recorded_at_kst": "2026-10-29T01:07:21.9641774+09:00",
+  "request": "Replace static offline notice with storage usage in sidebar",
+  "deployment": {
+    "url": "http://localhost:8000",
+    "image": "pixchive:sidebar-storage-20261029",
+    "image_id": "sha256:1365047e5d8447055bc433233a0dfe96997397c2a642ccfc13f224f8e545e796",
+    "base_image": "pixchive:unified-bookmarks-20261029",
+    "base_image_id": "sha256:5cb2ceac310e2d4575a8d011389391a125c3db4381aa19fb2d0ce1a3d1f44cfc",
+    "only_frontend_artifacts_changed_in_image": true,
+    "web_only_recreated": true,
+    "worker_browser_redis_preserved": true,
+    "archiver_unchanged": true
+  },
+  "behavior": {
+    "endpoint": "/api/system/status",
+    "query_key": "system",
+    "refresh_seconds": 30,
+    "stale_seconds": 30,
+    "mobile_query_disabled": true,
+    "filesystem_used_formula": "storage_total - storage_free",
+    "archive_formula": "sum ready Asset role bytes returned by archive",
+    "unknown_or_error_not_shown_as_zero": true,
+    "header_links_to_settings": true
+  },
+  "verification": {
+    "frontend_tests": 6,
+    "typecheck": "passed",
+    "production_build": "passed",
+    "prettier": "passed",
+    "offline_docker_build": "passed",
+    "backend_changed": false,
+    "backend_and_helper_tests_not_rerun": true,
+    "actual_status": {
+      "checked_at_utc": "2026-10-28T16:05:06Z",
+      "database_quick_check": "ok",
+      "foreign_key_errors": 0,
+      "schema": 11,
+      "artworks": 29,
+      "assets": 261,
+      "fixtures": 0,
+      "preserved_tables": {
+        "asset": true,
+        "artwork": true,
+        "admin_user": true,
+        "saved_collection": true,
+        "saved_collection_artwork": true
+      },
+      "key_preserved": true,
+      "storage_total": 1081101176832,
+      "storage_free": 1003854544896,
+      "storage_used": 77246631936,
+      "archive_media_bytes": 450239389
+    },
+    "display_used": "71.9 GB",
+    "display_total": "1,006.9 GB",
+    "display_free": "934.9 GB",
+    "display_archive": "429.4 MB",
+    "browser_failure_message_and_retry_checked": true,
+    "browser_failure_progressbar_count": 0,
+    "browser_navigation_preserved_during_failure": true,
+    "retry_restored_real_values": true,
+    "old_notice_removed": true,
+    "desktop_size": {
+      "width": 889,
+      "height": 884
+    },
+    "small_desktop": {
+      "storage_bottom": 557.140625,
+      "height": 650,
+      "storage_top": 422.5625,
+      "horizontal_overflow": false,
+      "sidebar_scroll_height": 691,
+      "sidebar_scroll_top": 41,
+      "width": 889
+    },
+    "mobile": {
+      "status_card_visible": false,
+      "width": 390,
+      "horizontal_overflow": false,
+      "height": 844
+    },
+    "cdp_request_blocking_restored": true,
+    "viewport_override_reset": true
+  },
+  "screenshot": "C:/Users/zeus8/.codex/visualizations/2026/10/25/01a173b8-805a-7022-835b-257894f3147a/sidebar-storage-local-20261029.jpg",
+  "source_sha256": {
+    "frontend/src/components/SidebarStorage.tsx": "79df617eaec3d0e2698f97ced5dff618c15ce5366ef222ce441651706e7de900",
+    "frontend/src/components/Shell.tsx": "074842bf4d0585c617563838805170dfd4b79df89e1a86b50057597fd905f04b",
+    "frontend/src/styles/app.css": "465720906ad66fda978e6235dc3d37c7f23d217856e2da26f5a1b32d6c37fbdd",
+    "frontend/src/i18n/ko.ts": "7e25b5efdcb9ebac0450cdc5931ba2ceef2478551493cc5985a5709c48eb2500"
+  }
+}

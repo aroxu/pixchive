@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import protected, public
+from app.api.routes import browser_sockets, protected, public
 from app.core.config import Settings
 from app.core.data_state import data_access
 from app.core.db import db, initialize
@@ -70,6 +70,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(RequestValidationError)
     async def validation_error(request, exc):
         # Pydantic's default errors include the original input, including secrets.
+        if request.url.path == "/api/setup" and any(
+            tuple(error.get("loc", ()))[-1:] == ("password",)
+            and error.get("type") == "string_too_short"
+            for error in exc.errors()
+        ):
+            return JSONResponse(
+                {
+                    "code": "password_too_short",
+                    "message": "비밀번호는 12자 이상으로 입력해 주세요.",
+                },
+                status_code=422,
+            )
         return JSONResponse(
             {"code": "invalid_request", "message": "입력값을 확인해 주세요."}, status_code=422
         )
@@ -82,6 +94,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(public)
     app.include_router(protected)
+    app.include_router(browser_sockets)
 
     @app.get("/health", include_in_schema=False)
     async def health():

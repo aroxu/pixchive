@@ -1,0 +1,239 @@
+{
+  "recorded_on_kst": "2026-10-29",
+  "request": "Add a setting for the maximum Pixiv requests per minute, default 5; 5 means up to 5 artworks per minute and image downloads inside an artwork do not count",
+  "context": {
+    "archiver_recent_scheduled_syncs": {
+      "scope": "all",
+      "mode": "full",
+      "failed_consecutively": 6,
+      "error": "rate_limited",
+      "phase": "scanning_private"
+    }
+  },
+  "behavior": {
+    "setting": "Settings > 예약 동기화 > 1분에 확인할 최대 작품 수",
+    "options": [
+      1,
+      2,
+      3,
+      5,
+      10,
+      20,
+      30,
+      60
+    ],
+    "default": 5,
+    "api_field": "ScheduleView/ScheduleInput.artworks_per_minute (1-60)",
+    "counted": "one per artwork information lookup (details, pages, Korean translation together)",
+    "not_counted": [
+      "bookmark list pages",
+      "original image downloads",
+      "avatar downloads",
+      "connection validation"
+    ],
+    "applies_to": [
+      "manual sync",
+      "scheduled sync",
+      "artwork repair",
+      "un-exclude restore"
+    ],
+    "window": "rolling 60 seconds, stored in setting pixiv_artwork_lookups, shared by all account jobs and kept across worker restarts",
+    "waiting": "job phase request_limit with retry_at shown as 다음 요청 가능 시각; pause/cancel/cookie change checked every second",
+    "schema_change": false
+  },
+  "automated": {
+    "backend": {
+      "passed": 569,
+      "new_tests": 5,
+      "ruff_files": 96,
+      "warnings": [
+        "StarletteDeprecationWarning (httpx)",
+        "intentional duplicate ZIP entry fixture"
+      ]
+    },
+    "new_tests": [
+      "tests/test_request_budget.py::test_window_allows_the_limit_then_waits_for_the_oldest_lookup",
+      "tests/test_request_budget.py::test_schedule_exposes_the_artwork_limit_with_default_five",
+      "tests/test_request_budget.py::test_only_artwork_lookups_count_toward_the_minute_limit",
+      "tests/test_request_budget.py::test_pause_during_the_minute_wait_stops_without_a_lookup",
+      "tests/test_request_budget.py::test_artwork_repair_lookup_also_waits_for_the_limit"
+    ],
+    "frontend": {
+      "tests": 6,
+      "typecheck": "passed",
+      "production_build": "passed"
+    },
+    "openapi": "regenerated; frontend schema.d.ts regenerated"
+  },
+  "local": {
+    "image": "pixchive:request-limit-20261029",
+    "image_id": "sha256:475a1ba7a85b013fa95c43fb0b18a89eb1fe3e24c43605621b2c3a3026beaba1",
+    "app_files_identical_web_worker_workspace": 71,
+    "db": {
+      "quick_check": "ok",
+      "fk_errors": 0,
+      "schema_version": 11,
+      "artworks": 40,
+      "assets": 360
+    },
+    "settings_ui": {
+      "default_shown": "1분에 5개 (기본값)",
+      "save_10_reload": "kept 10",
+      "restored_to": 5,
+      "mobile_390x844_overflow": 0
+    },
+    "real_full_refresh_public": {
+      "window_kst": "2026-10-29 16:25:30 – 16:32:58",
+      "artworks_checked": 40,
+      "errors": 0,
+      "downloads": 0,
+      "bursts": "5 lookups about 3.3 s apart; next burst 60 s after the burst's first lookup",
+      "observed_examples": [
+        [
+          1793258739.575,
+          1793258742.977,
+          1793258746.298,
+          1793258749.627,
+          1793258752.945
+        ],
+        [
+          1793258859.583,
+          1793258862.993,
+          1793258866.307,
+          1793258869.657,
+          1793258872.985
+        ],
+        [
+          1793258919.591
+        ]
+      ],
+      "waiting_ui": "1분 작품 확인 한도에 닿아 잠시 기다리는 중 / 다음 요청 가능 시각: 오후 4:26:40"
+    }
+  },
+  "archiver": {
+    "source": {
+      "path": "releases/cache-20261028/source-cache-20261028.tar.gz",
+      "sha256": "83a8a60017ff948f74a927251dfcaeb4da32046abbaabe29b016a27aadd263b8"
+    },
+    "frontend_reproduction": {
+      "method": "Linux node:24-alpine build as in the original Dockerfile",
+      "unchanged_build_matches_running_dist": "203/203 files"
+    },
+    "backend_patch": [
+      "app/services/request_budget.py (new)",
+      "app/services/schedule.py",
+      "app/services/collection.py",
+      "app/api/contracts.py"
+    ],
+    "openapi_differences": [
+      "ScheduleInput.artworks_per_minute",
+      "ScheduleView.artworks_per_minute",
+      "ScheduleView.required"
+    ],
+    "tests": {
+      "backend_v10_passed": 550,
+      "previous": 545,
+      "ruff_files": 94,
+      "frontend_v10_tests": 2,
+      "typecheck": "passed"
+    },
+    "bundle": {
+      "bytes": 4043933,
+      "sha256": "e37027a6126ce7af536416d4bc263ecf8a51d61e8300b3b82c547778b6f205e6",
+      "files": 212
+    },
+    "image": "pixchive:archiver-request-limit-20261029",
+    "image_id_local_build": "sha256:003bdc7f9fa2af8a607478d1c53033230aa7426560926d9b2f571ce7b7266bf3",
+    "image_id_archiver_build": "sha256:0e8722802225c177bc0079d83250753de370da159c727337c7f546248613be49",
+    "archiver_vs_local_image_files": "281/281 identical (app, frontend dist, docs)",
+    "deployment": {
+      "previous_image": "pixchive:archiver-worker-tuning-20261028",
+      "active_jobs_before": 0,
+      "sequence": [
+        "graceful stop of worker/web",
+        "pre-update DB snapshot and state (quick_check ok)",
+        "PIXCHIVE_IMAGE line changed in deploy/.env (previous.env kept)",
+        "start.sh start (preflight passed)",
+        "post-update verification"
+      ],
+      "release_dir": "/mnt/storage/pixchive/releases/request-limit-20261029",
+      "running_backup_container_untouched": true
+    },
+    "after": {
+      "health": 200,
+      "quick_check": "ok",
+      "fk_errors": 0,
+      "schema_version": 10,
+      "artworks": 4189,
+      "asset_records_preserved": "33554/33554",
+      "admin_and_key_preserved": true,
+      "changed_setting_keys": [
+        "worker_heartbeat"
+      ],
+      "artworks_per_minute": "default (5)",
+      "helper_redis": "not recreated; IDs match precontainers.txt (the pre-update state file recorded empty IDs)",
+      "settings_ui": "1분에 5개 (기본값) next to Pixiv 요청 간격 0.5초",
+      "next_scheduled_run_kst": "2026-10-29 20:45:40 (full metadata refresh)"
+    }
+  },
+  "deployment_recheck": {
+    "checked_at_kst": "2026-10-29T21:08:07.927565+09:00",
+    "requested_target": "archiver",
+    "image": "pixchive:archiver-request-limit-20261029",
+    "web_and_worker_image_id": "sha256:0e8722802225c177bc0079d83250753de370da159c727337c7f546248613be49",
+    "already_deployed": true,
+    "containers_recreated_during_recheck": false,
+    "preflight": "passed",
+    "health": "ok",
+    "service_active": true,
+    "hourly_backup_timer_active": true,
+    "running_backup_image": "pixchive:archiver-request-limit-20261029",
+    "database": {
+      "quick_check": "ok",
+      "foreign_key_errors": 0,
+      "schema_version": 10,
+      "artworks": 4189,
+      "assets": 33554,
+      "admin_count": 1,
+      "pixiv_account_status": "connected"
+    },
+    "worker_heartbeat_age_seconds": 4.7,
+    "effective_artworks_per_minute": 5,
+    "limit_uses_default": true,
+    "recent_60_second_lookup_count": 5,
+    "recent_lookups": [
+      1793275666.743,
+      1793275669.561,
+      1793275673.577,
+      1793275675.767,
+      1793275677.729
+    ],
+    "scheduled_sync": {
+      "id": "38181510-03b4-41ce-8030-47694f605995",
+      "created_at": 1793274341,
+      "scope": "all",
+      "mode": "full",
+      "state": "running",
+      "phase": "request_limit",
+      "failed": 0,
+      "error_code": null,
+      "collection_outcomes": {
+        "checked": 82,
+        "unavailable": 6
+      },
+      "full_run_completed": false
+    }
+  },
+  "limits": [
+    "Not shown that 5 per minute avoids Pixiv rate limits over long runs",
+    "Archiver scheduled full refresh is running under the new limit with no job failure at the recheck; completion is not yet verified",
+    "At 5 per minute a full refresh takes about 3 h 20 min per 1,000 artworks (16+ hours at the current account size)",
+    "Progress counts rise after each 48-bookmark page is checked, so they can stay unchanged for about 10 minutes per page"
+  ],
+  "screenshots": [
+    "rate-limit-settings-local.png",
+    "rate-limit-settings-mobile.png",
+    "rate-limit-job-waiting.png",
+    "rate-limit-settings-archiver.png"
+  ]
+}

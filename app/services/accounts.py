@@ -47,6 +47,57 @@ def store_credential(settings: Settings, cookie: str) -> dict:
     return list_accounts()[0]
 
 
+def adopt_verified_cookie(
+    settings: Settings, cookie: str, pixiv_id: str, expected: str | None
+) -> str:
+    """Adopt a caller-verified session only while the observed credential is current.
+
+    The caller must verify identity with this cookie before calling. Reading the
+    key and encrypting happen outside the write transaction; neither contacts Pixiv.
+    """
+    if not isinstance(cookie, str) or not re.fullmatch(COOKIE_PATTERN, cookie):
+        raise DomainError("invalid_cookie", "PHPSESSID 쿠키의 값만 입력해 주세요.", 422)
+    if (
+        not isinstance(pixiv_id, str)
+        or not re.fullmatch(r"[0-9]{1,20}", pixiv_id)
+        or int(pixiv_id) == 0
+    ):
+        raise DomainError("invalid_pixiv_id", "검증된 Pixiv 계정 ID를 확인해 주세요.", 422)
+    current = Credential.get_or_none(Credential.account == 1)
+    if (current.ciphertext if current else None) != expected:
+        raise DomainError("credential_changed", "쿠키가 변경되어 작업을 중단했습니다.", 409)
+    try:
+        cipher = Fernet(settings.key_file.read_bytes().strip())
+        same_cookie = (
+            current is not None
+            and current.kind == "pixiv_cookie"
+            and cipher.decrypt(current.ciphertext.encode()).decode() == cookie
+        )
+        encrypted = current.ciphertext if same_cookie else cipher.encrypt(cookie.encode()).decode()
+    except (OSError, ValueError, InvalidToken):
+        raise DomainError("key_unavailable", "자격 증명 보관 키를 확인해 주세요.", 503) from None
+    with db.atomic("IMMEDIATE"):
+        current = Credential.get_or_none(Credential.account == 1)
+        if (current.ciphertext if current else None) != expected:
+            raise DomainError("credential_changed", "쿠키가 변경되어 작업을 중단했습니다.", 409)
+        account = PixivAccount.get_or_none(PixivAccount.id == 1)
+        if account and account.pixiv_id and account.pixiv_id != pixiv_id:
+            raise DomainError(
+                "account_mismatch", "기존과 같은 Pixiv 계정의 쿠키를 등록해 주세요.", 409
+            )
+        if account is None:
+            account = PixivAccount.create(id=1)
+        if current is None:
+            Credential.create(account=account, ciphertext=encrypted, kind="pixiv_cookie")
+        elif encrypted != current.ciphertext or current.kind != "pixiv_cookie":
+            Credential.update(ciphertext=encrypted, kind="pixiv_cookie").where(
+                (Credential.account == 1) & (Credential.ciphertext == expected)
+            ).execute()
+        account.pixiv_id, account.status, account.validated_at = pixiv_id, "connected", now()
+        account.save()
+    return encrypted
+
+
 def disconnect():
     with db.atomic("IMMEDIATE"):
         Credential.delete().execute()

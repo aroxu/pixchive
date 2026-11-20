@@ -21,6 +21,57 @@ def request(artwork_id: str, key: str) -> Job:
         return jobs.enqueue_preview(artwork_id, key)
 
 
+def enqueue_missing(job_id: str, limit: int = 100) -> list[Job]:
+    """Queue at most 100 local preview recoveries from completed original tasks.
+
+    Internal collection recovery follows kept files, including hidden ratings;
+    it does not apply UI visibility or Pixiv download/credential policy. Only
+    the latest kept first-page original is eligible. A stable source key gives
+    each source one automatic attempt; failed/cancelled jobs require an explicit
+    retry. Already active previews and earlier attempts do not consume the limit.
+    """
+    if type(limit) is not int or not 0 <= limit <= 100:
+        raise ValueError("Preview recovery limit must be an integer between 0 and 100")
+    if not limit:
+        return []
+    with db.atomic("IMMEDIATE"):
+        parent = jobs.require_job(job_id)
+        if parent.kind not in jobs.PARENTS:
+            return []
+        # Filter/deduplicate before LIMIT so old attempts, ready thumbnails and
+        # duplicate task references cannot permanently hide later candidates.
+        rows = db.execute_sql(
+            """SELECT DISTINCT a.rowid, a.id, a.artwork_id
+            FROM download_task d JOIN asset a ON a.id = d.asset_id
+            JOIN artwork w ON w.id = a.artwork_id
+            WHERE d.job_id = ? AND d.state = 'ready' AND d.page = 0
+              AND d.artwork_id = a.artwork_id
+              AND a.role = 'original' AND a.page = 0 AND a.state = 'ready'
+              AND w.kind IN ('illustration', 'manga')
+              AND NOT EXISTS (SELECT 1 FROM tombstone t WHERE t.artwork_id = a.artwork_id)
+              AND NOT EXISTS (
+                SELECT 1 FROM asset n WHERE n.artwork_id = a.artwork_id
+                AND n.role = 'original' AND n.page = 0 AND n.state != 'deleted'
+                AND n.rowid > a.rowid)
+              AND NOT EXISTS (
+                SELECT 1 FROM asset p WHERE p.id = a.thumbnail_id
+                AND p.role = 'thumbnail' AND p.page = 0 AND p.artwork_id = a.artwork_id
+                AND p.state = 'ready')
+              AND NOT EXISTS (
+                SELECT 1 FROM job j
+                WHERE j.idempotency_key =
+                  'preview:1:' || a.artwork_id || ':recover-source:' || a.id)
+              AND NOT EXISTS (
+                SELECT 1 FROM job j WHERE j.active_key = 'preview:1:' || a.artwork_id)
+            ORDER BY a.rowid LIMIT ?""",
+            (job_id, limit),
+        ).fetchall()
+        return [
+            jobs.enqueue_preview(artwork_id, f"recover-source:{source_id}")
+            for _, source_id, artwork_id in rows
+        ]
+
+
 def build(settings, artwork_id: str, source: Asset, check):
     with db.connection_context():
         check()

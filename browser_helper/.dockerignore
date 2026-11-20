@@ -1,0 +1,11 @@
+*
+!Dockerfile
+!requirements.txt
+!pixchive_browser/
+!pixchive_browser/*.py
+!entrypoint.py
+!launch.py
+!chromium-policy.json
+!THIRD_PARTY_NOTICES.md
+!vendor/
+!vendor/*

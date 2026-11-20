@@ -1,0 +1,79 @@
+{
+  "recorded_on_kst": "2026-11-20",
+  "request": "Increase image random wait to 0.1-1.3 seconds",
+  "behavior": {
+    "media_http_request_delay_seconds": [0.1, 1.3],
+    "previous_range": [0.1, 0.4],
+    "only_app_change": "app/adapters/pixiv/transport.py media_request_delay upper bound",
+    "metadata_request_interval_changed": false,
+    "maximum_parallel_downloads": 3,
+    "artwork_budget_includes_images": false,
+    "cooldown_cancellation_redirects_retries": "preserved",
+    "api_schema_ui_changed": false
+  },
+  "tests": {
+    "targeted": 96,
+    "full_backend": 594,
+    "full_seconds": 189.57,
+    "warnings": 2,
+    "sampler_edges": [0.1, 1.3],
+    "cancel_and_slot_release_delays": [0.25, 1.25],
+    "ruff_lint": "passed",
+    "ruff_format_files": 98,
+    "openapi": "generated without startup; byte-identical to documented contract",
+    "network": "disconnected during tests; synthetic data only",
+    "frontend_helper": "unchanged; not rebuilt/retested"
+  },
+  "release": {
+    "image": "pixchive:archiver-media-jitter-20261120",
+    "previous_image": "pixchive:archiver-media-jitter-20261106",
+    "remote_image_id": "sha256:1eafad3f4939e6b29d15d2df909bf6478a1a3f8257e196e72a0918cd94ba962e",
+    "local_archiver_image_id": "sha256:23d71c30654bf232acb4177987b83268e87d11b2fa14166375ec1a1f768ed7a3",
+    "local_image": "pixchive:media-jitter-20261120",
+    "local_image_id": "sha256:1a0e8e94ea8ad4198b317435b319e2e87ca9a47f1bad146c9a9d76279a8b9b68",
+    "bundle_bytes": 6751,
+    "bundle_sha256": "2550057ba800ee10112767a53e07c353386ae33141f5938f9646d15cd8fa5188",
+    "app_files": 71,
+    "app_sha256": "f4a00af7e3451f1ac410e35fdd9f26a138c2c02b7014eaf5490d76cfd3f0acec",
+    "transport_sha256": "f5a31f80a1fd0e1bfa30f5e0d4842aee70bebc5e6d906114dd625a0daaf4b932",
+    "release_dir": "/mnt/storage/pixchive/releases/media-jitter-20261120",
+    "local_runtime": "left stopped as found; local image alias prepared"
+  },
+  "mock_sample": {
+    "network": "mock only",
+    "http_requests": 6,
+    "request_delays_seconds": [0.987553, 1.07486, 1.24066, 0.588741, 0.361545, 0.547626],
+    "redirect_resampled": true,
+    "credential_headers_sent": false
+  },
+  "production": {
+    "checked_at_kst": "2026-11-20T13:34:12.233036+09:00",
+    "active_account_jobs_at_cutover": 0,
+    "health": "ok",
+    "schema": 11,
+    "quick_check": "ok",
+    "foreign_key_errors": 0,
+    "artworks": 4380,
+    "assets": 35414,
+    "admin_count": 1,
+    "account_status": "connected",
+    "key_preserved": true,
+    "existing_archive_admin_collection_tables_preserved": 15,
+    "changed_archive_tables": [],
+    "changed_setting_keys": ["worker_heartbeat"],
+    "worker_heartbeat_age_seconds": 5.1,
+    "request_interval_ms": 1000,
+    "artworks_per_minute": 10,
+    "schedule_enabled": true,
+    "fixture_artworks": 0,
+    "helper_and_redis_recreated": false,
+    "hourly_full_media_backup_timer": "active; unchanged",
+    "saved_collections": 0,
+    "saved_memberships": 0
+  },
+  "cleanup": "removed only named pixchive-qa-media-range-20261120; preserved logs, snapshots, release artifacts and production data",
+  "limits": [
+    "No real-account synchronization or redownload initiated",
+    "Actual 429 reduction is not established"
+  ]
+}

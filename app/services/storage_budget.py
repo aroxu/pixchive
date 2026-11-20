@@ -80,6 +80,10 @@ def hold(settings, job_id: str, owner: str, additional_bytes: int, check):
             # Sample after taking the reservation lock: an earlier owner may have
             # finished a write and released its budget while we were waiting.
             free = shutil.disk_usage(settings.data_dir).free
+            if settings.cache_dir is not None:
+                # Reservations cover both scratch generation and final copies.
+                # Use the tighter filesystem's space without pooling capacities.
+                free = min(free, shutil.disk_usage(settings.cache_dir).free)
             current = StorageReservation.get_or_none(StorageReservation.job == job_id)
             previous = current.bytes if current is not None else 0
             allocated = previous + additional_bytes

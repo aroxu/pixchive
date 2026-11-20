@@ -1,9 +1,15 @@
 """Durable bookmark scans, metadata refresh, and original collection, independent of HTTP."""
 
+import asyncio
 import errno
 import hashlib
 import json
+import math
 import shutil
+from contextlib import ExitStack, nullcontext
+from dataclasses import dataclass
+
+from peewee import Case, fn
 
 from app.adapters.pixiv.contracts import (
     AdapterError,
@@ -13,7 +19,8 @@ from app.adapters.pixiv.contracts import (
     RemotePage,
 )
 from app.adapters.pixiv.live import CookiePixivAdapter
-from app.adapters.pixiv.transport import MAX_IMAGE_BYTES, download
+from app.adapters.pixiv.transport import MAX_IMAGE_BYTES, MediaDownloadSession, download
+from app.core.async_cleanup import settle
 from app.core.db import db
 from app.core.errors import DomainError
 from app.core.time import now
@@ -33,10 +40,13 @@ from app.services import (
     jobs,
     library,
     preferences,
+    previews,
     repair,
+    request_budget,
     schedule,
     storage,
     storage_budget,
+    tempfiles,
     ugoira,
 )
 from app.services.execution import Interrupted, disk_operation, watch
@@ -51,19 +61,55 @@ AUTH_CODES = (
     "account_mismatch",
 )
 MAX_AVATAR_FAILURES = 200
+PARALLEL_PAGES = 3
+# Replaced in tests. The per-minute wait re-checks pause/cancel every second.
+limit_sleep = asyncio.sleep
+
+
+@dataclass
+class _CredentialState:
+    ciphertext: str
 
 
 def guard(job_id, owner, credential):
     job = jobs.owned(job_id, owner)
     if not job or job.state != "running":
         raise Interrupted
-    if not accounts.credential_current(credential):
+    expected = credential.ciphertext if isinstance(credential, _CredentialState) else credential
+    if not accounts.credential_current(expected):
         raise DomainError("credential_changed", "쿠키가 변경되어 작업을 중단했습니다.", 409)
 
 
 async def interruptible(operation, job_id, owner, credential):
     """Cancel network/subprocess activity and await cleanup before acknowledging pause."""
     return await watch(operation, lambda: guard(job_id, owner, credential))
+
+
+async def artwork_slot(job_id, owner, credential):
+    """Wait for room under the per-minute artwork lookup limit.
+
+    Only artwork information requests count; bookmark lists and image downloads do not.
+    While waiting, the job shows the request-limit phase and the next allowed time.
+    """
+    previous = None
+    try:
+        while True:
+            guard(job_id, owner, credential)
+            wait = request_budget.reserve(schedule.artworks_per_minute())
+            if wait <= 0:
+                return
+            if previous is None:
+                previous = Job.get_by_id(job_id).phase
+                Job.update(
+                    phase="request_limit",
+                    retry_at=math.ceil(request_budget.clock() + wait),
+                ).where((Job.id == job_id) & (Job.owner == owner)).execute()
+            await limit_sleep(min(wait, 1.0))
+    finally:
+        if previous is not None:
+            Job.update(phase=previous, retry_at=None).where(
+                (Job.id == job_id) & (Job.owner == owner) & (Job.phase == "request_limit")
+            ).execute()
 
 
 def ensure_space(settings):
@@ -188,6 +234,7 @@ async def observe(adapter, listing: BookmarkListing, mode, refresh_before, job_i
         if not needs_details(entry, artwork, mode, refresh_before):
             observed[entry.id] = {"outcome": "unchanged"}
             continue
+        await artwork_slot(job_id, owner, cred)
         try:
             remote = await interruptible(adapter.artwork(entry.id), job_id, owner, cred)
             if remote.id != entry.id:
@@ -330,18 +377,18 @@ async def make_preview(settings, artwork_id, job_id, owner, check):
 
 
 def progress(job_id):
-    processed = (
-        DownloadTask.select()
-        .where(
-            (DownloadTask.job == job_id)
-            & DownloadTask.state.in_(("ready", "failed", "excluded", "skipped"))
+    processed, file_failures = (
+        DownloadTask.select(
+            fn.COUNT(
+                Case(
+                    None, ((DownloadTask.state.in_(("ready", "failed", "excluded", "skipped")), 1),)
+                )
+            ),
+            fn.COUNT(Case(None, ((DownloadTask.state == "failed", 1),))),
         )
-        .count()
-    )
-    file_failures = (
-        DownloadTask.select()
-        .where((DownloadTask.job == job_id) & (DownloadTask.state == "failed"))
-        .count()
+        .where(DownloadTask.job == job_id)
+        .tuples()
+        .get()
     )
     # An inaccessible remote work is a reported state, not a failed local operation.
     metadata_failures = (
@@ -369,131 +416,431 @@ def media_fetcher(ctx, job_id, owner):
 
 
 async def download_pending(ctx, job_id, owner, credential):
-    settings = ctx["settings"]
+    # A page/batch shares one credential-free HTTP connection pool. Synthetic
+    # adapters keep their injected fetch function and never open a real client.
+    if "download" not in ctx:
+        async with MediaDownloadSession(
+            on_retry=lambda error, delay: jobs.backoff(job_id, owner, error, delay)
+        ) as fetch:
+            return await download_pending({**ctx, "download": fetch}, job_id, owner, credential)
+    Job.update(phase="downloading").where(Job.id == job_id).execute()
+    if (
+        not DownloadTask.select()
+        .where((DownloadTask.job == job_id) & (DownloadTask.state == "pending"))
+        .exists()
+    ):
+        return
+
+    def check():
+        guard(job_id, owner, credential)
+
+    with tempfiles.reuse_blobs(ctx["settings"], guard=check):
+        await _download_pending(ctx, job_id, owner, credential)
+
+
+class _AheadDownload:
+    """One next file in memory while the current file is verified and committed.
+
+    Network requests remain serial. No prefetched file is published or marked
+    ready until its own normal guard, policy and space checks have passed.
+    """
+
+    def __init__(self, fetch, job_id, owner, credential):
+        self.fetch = fetch
+        self.job_id, self.owner, self.credential = job_id, owner, credential
+        self.pending = None
+
+    async def take(self, item):
+        await self.align(item)
+        pending, self.pending = self.pending, None
+        if pending is not None:
+            identity, url, task = pending
+            if (identity, url) == (item.id, item.url):
+                return await task
+            # A policy/deletion change can skip the next item. Drain its request
+            # before issuing another: preserve any in-flight Retry-After and do
+            # not lose a terminal account/rate failure from an unused prefetch.
+            await self.drain(task)
+        return await interruptible(self.fetch(item.url), self.job_id, self.owner, self.credential)
+
+    async def align(self, item):
+        if self.pending is not None and self.pending[:2] != (item.id, item.url):
+            pending, self.pending = self.pending, None
+            await self.drain(pending[2])
+        if self.pending is not None and self.pending[2].done():
+            try:
+                self.pending[2].result()
+            except AdapterError as exc:
+                if exc.code in ("auth_expired", "rate_limited"):
+                    raise
+            except DomainError as exc:
+                if exc.code == "credential_changed":
+                    raise
+
+    def start(self, current):
+        if self.pending is not None:
+            return
+        guard(self.job_id, self.owner, self.credential)
+        item = (
+            DownloadTask.select()
+            .where(
+                (DownloadTask.job == self.job_id)
+                & (DownloadTask.state == "pending")
+                & (DownloadTask.id > current.id)
+            )
+            .order_by(DownloadTask.id)
+            .first()
+        )
+        if (
+            item is None
+            or item.asset_id is not None
+            or Tombstone.get_or_none(Tombstone.artwork_id == item.artwork_id)
+            or not preferences.download_allowed(item.artwork.rating)
+        ):
+            return
+        # A previous run may have completed this source since the page was
+        # planned. Let the regular path inspect it instead of downloading again.
+        if (
+            DownloadTask.select()
+            .where(
+                (DownloadTask.artwork == item.artwork_id)
+                & (DownloadTask.page == item.page)
+                & (DownloadTask.url == item.url)
+                & DownloadTask.asset.is_null(False)
+                & (DownloadTask.state == "ready")
+            )
+            .exists()
+        ):
+            return
+        task = asyncio.create_task(
+            interruptible(self.fetch(item.url), self.job_id, self.owner, self.credential)
+        )
+        self.pending = item.id, item.url, task
+
+    @staticmethod
+    async def stop(task):
+        if not task.done():
+            task.cancel()
+        await settle(asyncio.gather(task, return_exceptions=True))
+
+    @staticmethod
+    async def drain(task):
+        try:
+            await task
+        except AdapterError as exc:
+            if exc.code in ("auth_expired", "rate_limited"):
+                raise
+        except DomainError as exc:
+            if exc.code == "credential_changed":
+                raise
+
+    async def close(self, *, drain=False):
+        pending, self.pending = self.pending, None
+        if pending is not None:
+            if drain:
+                await self.drain(pending[2])
+            else:
+                await self.stop(pending[2])
+
+
+async def _download_pending(ctx, job_id, owner, credential):
     fetch = media_fetcher(ctx, job_id, owner)
 
     def check():
         guard(job_id, owner, credential)
 
-    Job.update(phase="downloading").where(Job.id == job_id).execute()
+    ahead = _AheadDownload(fetch, job_id, owner, credential)
+    completed = False
+    try:
+        await _download_batch(ctx, job_id, owner, credential, check, ahead)
+        completed = True
+    finally:
+        await ahead.close(drain=completed)
+
+
+async def _download_batch(ctx, job_id, owner, credential, check, ahead):
+    settings = ctx["settings"]
     # No list() over the archive: bounded memory even for long collections.
-    while (
-        item := DownloadTask.select()
-        .where((DownloadTask.job == job_id) & (DownloadTask.state == "pending"))
-        .order_by(DownloadTask.id)
-        .first()
-    ):
+    after = None
+    while True:
+        pending = DownloadTask.select().where(
+            (DownloadTask.job == job_id) & (DownloadTask.state == "pending")
+        )
+        if after is not None:
+            pending = pending.where(DownloadTask.id > after)
+        item = pending.order_by(DownloadTask.id).first()
+        if item is None:
+            if after is None:
+                return
+            # A concurrent recovery can make an older row pending again. The
+            # cursor is invocation-local; always check the full queue before exit.
+            after = None
+            continue
         guard(job_id, owner, credential)
-        if Tombstone.get_or_none(Tombstone.artwork_id == item.artwork_id):
-            DownloadTask.update(state="excluded").where(DownloadTask.id == item.id).execute()
-            progress(job_id)
-            continue
-        if not preferences.download_allowed(item.artwork.rating):
-            skip_download(item, job_id)
-            continue
-        try:
-            # Reuse only the same observed original URL. A changed original URL creates
-            # a new immutable revision and keeps the old one.
-            asset = Asset.get_or_none(Asset.id == item.asset_id) if item.asset_id else None
-            if asset:
-                # Staged after a crash: verify the moved bytes before trusting them.
-                state = await disk_operation(storage.verify_asset, settings, asset, check)
-                guard(job_id, owner, credential)
-                if state != "ready":
-                    asset = None
-            else:
-                previous = (
-                    DownloadTask.select()
-                    .where(
-                        (DownloadTask.artwork == item.artwork_id)
-                        & (DownloadTask.page == item.page)
-                        & (DownloadTask.url == item.url)
-                        & DownloadTask.asset.is_null(False)
-                        & (DownloadTask.state == "ready")
+        items = parallel_pages(item, job_id)
+        with ExitStack() as reservation:
+            while len(items) > 1:
+                try:
+                    reservation.enter_context(
+                        storage_budget.hold(
+                            settings,
+                            job_id,
+                            owner,
+                            len(items) * (MAX_IMAGE_BYTES + storage_budget.PREVIEW_BYTES),
+                            check,
+                        )
                     )
-                    .order_by(DownloadTask.id.desc())
-                    .first()
-                )
-                asset = previous.asset if previous else None
-                if asset and asset.state == "deleted":
-                    asset = None
-                if asset:
-                    state = await disk_operation(
-                        storage.verify_asset, settings, asset, check, full_hash=False
-                    )
-                    guard(job_id, owner, credential)
-                    if state != "ready":
-                        asset = None
-            if not asset:
-                with storage_budget.hold(
-                    settings,
-                    job_id,
-                    owner,
-                    MAX_IMAGE_BYTES + storage_budget.PREVIEW_BYTES,
-                    check,
-                ):
+                    break
+                except OSError as exc:
+                    if exc.errno not in (errno.ENOSPC, errno.EDQUOT):
+                        raise
+                    # A smaller window may fit without waiting for storage.
+                    items.pop()
+            if len(items) > 1:
+                # Reserve the bounded batch before any request; publish serially.
+                prepared = None
+                try:
                     ensure_space(settings)
-                    content = await interruptible(fetch(item.url), job_id, owner, credential)
-                    guard(job_id, owner, credential)
-                    if not preferences.download_allowed(item.artwork.rating):
-                        skip_download(item, job_id)
-                        continue
-                    asset = await disk_operation(
-                        save_original,
-                        settings,
-                        item,
-                        content,
-                        job_id,
-                        owner,
-                        credential,
+                    await ahead.align(items[0])
+                    prepared = _PreparedDownloads(
+                        await fetch_pages(items, ahead, job_id, owner, credential)
                     )
-            elif item.frames:
-                # Repair a missing timing file/bundle after a ZIP move interrupted by a crash.
-                with storage_budget.hold(
-                    settings,
-                    job_id,
-                    owner,
-                    MAX_IMAGE_BYTES + storage_budget.PREVIEW_BYTES,
-                    check,
-                ):
-                    content = await disk_operation(
-                        storage.safe_path(settings, asset.path).read_bytes
+                    for page in items:
+                        await _download_item(
+                            ctx,
+                            page,
+                            job_id,
+                            owner,
+                            credential,
+                            check,
+                            prepared,
+                            budgeted=True,
+                            report_progress=False,
+                        )
+                finally:
+                    if prepared is not None:
+                        prepared.results.clear()
+                    # States remain durable per file; publish their aggregate even
+                    # when a later write, pause, or cancellation stops this chunk.
+                    progress(job_id)
+            else:
+                try:
+                    await _download_item(
+                        ctx, item, job_id, owner, credential, check, ahead, report_progress=False
                     )
-                    asset = await disk_operation(
-                        save_original,
-                        settings,
-                        item,
-                        content,
-                        job_id,
-                        owner,
-                        credential,
-                    )
-            with db.atomic("IMMEDIATE"):
-                guard(job_id, owner, credential)
-                if Tombstone.get_or_none(Tombstone.artwork_id == item.artwork_id):
-                    raise storage.excluded_error()
-                DownloadTask.update(state="ready", asset=asset, error_code=None).where(
-                    DownloadTask.id == item.id
-                ).execute()
-                storage.refresh_archive(item.artwork_id)
-            if not item.frames and item.page == 0:
-                await make_preview(settings, item.artwork_id, job_id, owner, check)
+                finally:
+                    progress(job_id)
+        # Every normal item return retired this head. Other artwork rows can
+        # precede later pages in a chunk, so advance only past the original head.
+        after = item.id
+
+
+def parallel_pages(first, job_id):
+    """A bounded prefix from one work; existing/staged files use normal recovery."""
+    if first.frames or first.asset_id is not None:
+        return []
+    if Tombstone.get_or_none(Tombstone.artwork_id == first.artwork_id):
+        return []
+    if not preferences.download_allowed(first.artwork.rating):
+        return []
+    items = []
+    for item in (
+        DownloadTask.select()
+        .where(
+            (DownloadTask.job == job_id)
+            & (DownloadTask.artwork == first.artwork_id)
+            & (DownloadTask.state == "pending")
+            & (DownloadTask.id >= first.id)
+        )
+        .order_by(DownloadTask.id)
+        .limit(PARALLEL_PAGES)
+    ):
+        if item.frames or item.asset_id is not None:
+            break
+        if (
+            DownloadTask.select()
+            .where(
+                (DownloadTask.artwork == item.artwork_id)
+                & (DownloadTask.page == item.page)
+                & (DownloadTask.url == item.url)
+                & DownloadTask.asset.is_null(False)
+                & (DownloadTask.state == "ready")
+            )
+            .exists()
+        ):
+            break
+        items.append(item)
+    return items
+
+
+async def fetch_pages(items, ahead, job_id, owner, credential):
+    """Fail fast on account/stop errors; retain ordinary per-file failures."""
+
+    async def fetch(item):
+        try:
+            if item.id == items[0].id:
+                return await ahead.take(item)
+            return await interruptible(ahead.fetch(item.url), job_id, owner, credential)
         except AdapterError as exc:
             if exc.code in ("auth_expired", "rate_limited"):
                 raise
-            DownloadTask.update(state="failed", error_code=exc.code).where(
+            return exc
+
+    tasks = [asyncio.create_task(fetch(item)) for item in items]
+    try:
+        done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+        for task in tasks:
+            if task in done and not task.cancelled() and task.exception() is not None:
+                raise task.exception()
+        return {(item.id, item.url): task.result() for item, task in zip(items, tasks, strict=True)}
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await settle(asyncio.gather(*tasks, return_exceptions=True))
+
+
+class _PreparedDownloads:
+    def __init__(self, results):
+        self.results = results
+
+    async def take(self, item):
+        result = self.results.pop((item.id, item.url))
+        if isinstance(result, AdapterError):
+            raise result
+        return result
+
+    def start(self, current):
+        pass
+
+
+async def _download_item(
+    ctx, item, job_id, owner, credential, check, ahead, *, budgeted=False, report_progress=True
+):
+    settings = ctx["settings"]
+    guard(job_id, owner, credential)
+    if Tombstone.get_or_none(Tombstone.artwork_id == item.artwork_id):
+        DownloadTask.update(state="excluded").where(DownloadTask.id == item.id).execute()
+        if report_progress:
+            progress(job_id)
+        return
+    if not preferences.download_allowed(item.artwork.rating):
+        skip_download(item, job_id, report_progress=report_progress)
+        return
+    try:
+        stored = False
+        # Reuse only the same observed original URL. A changed original URL creates
+        # a new immutable revision and keeps the old one.
+        asset = Asset.get_or_none(Asset.id == item.asset_id) if item.asset_id else None
+        if asset:
+            # Staged after a crash: verify the moved bytes before trusting them.
+            state = await disk_operation(storage.verify_asset, settings, asset, check)
+            guard(job_id, owner, credential)
+            if state != "ready":
+                asset = None
+        else:
+            previous = (
+                DownloadTask.select()
+                .where(
+                    (DownloadTask.artwork == item.artwork_id)
+                    & (DownloadTask.page == item.page)
+                    & (DownloadTask.url == item.url)
+                    & DownloadTask.asset.is_null(False)
+                    & (DownloadTask.state == "ready")
+                )
+                .order_by(DownloadTask.id.desc())
+                .first()
+            )
+            asset = previous.asset if previous else None
+            if asset and asset.state == "deleted":
+                asset = None
+            if asset:
+                state = await disk_operation(
+                    storage.verify_asset, settings, asset, check, full_hash=False
+                )
+                guard(job_id, owner, credential)
+                if state != "ready":
+                    asset = None
+        if not asset:
+            budget = (
+                nullcontext()
+                if budgeted
+                else storage_budget.hold(
+                    settings,
+                    job_id,
+                    owner,
+                    MAX_IMAGE_BYTES + storage_budget.PREVIEW_BYTES,
+                    check,
+                )
+            )
+            with budget:
+                ensure_space(settings)
+                content = await ahead.take(item)
+                guard(job_id, owner, credential)
+                if not preferences.download_allowed(item.artwork.rating):
+                    skip_download(item, job_id, report_progress=report_progress)
+                    return
+                ahead.start(item)
+                asset = await disk_operation(
+                    save_original,
+                    settings,
+                    item,
+                    content,
+                    job_id,
+                    owner,
+                    credential,
+                )
+                stored = True
+        elif item.frames:
+            # Repair a missing timing file/bundle after a ZIP move interrupted by a crash.
+            with storage_budget.hold(
+                settings,
+                job_id,
+                owner,
+                MAX_IMAGE_BYTES + storage_budget.PREVIEW_BYTES,
+                check,
+            ):
+                content = await disk_operation(storage.safe_path(settings, asset.path).read_bytes)
+                asset = await disk_operation(
+                    save_original,
+                    settings,
+                    item,
+                    content,
+                    job_id,
+                    owner,
+                    credential,
+                )
+                stored = True
+        with db.atomic("IMMEDIATE"):
+            guard(job_id, owner, credential)
+            if Tombstone.get_or_none(Tombstone.artwork_id == item.artwork_id):
+                raise storage.excluded_error()
+            DownloadTask.update(state="ready", asset=asset, error_code=None).where(
                 DownloadTask.id == item.id
             ).execute()
-        except DomainError as exc:
-            if exc.code == "credential_changed":
-                raise
-            DownloadTask.update(
-                state="excluded" if exc.code == "excluded" else "failed", error_code=exc.code
-            ).where(DownloadTask.id == item.id).execute()
+            if not stored:
+                # An unchanged verified Asset can be reused after page_count
+                # changed. New stores already refresh their authoritative state.
+                storage.refresh_archive(item.artwork_id)
+        if not item.frames and item.page == 0:
+            await make_preview(settings, item.artwork_id, job_id, owner, check)
+    except AdapterError as exc:
+        if exc.code in ("auth_expired", "rate_limited"):
+            raise
+        DownloadTask.update(state="failed", error_code=exc.code).where(
+            DownloadTask.id == item.id
+        ).execute()
+    except DomainError as exc:
+        if exc.code == "credential_changed":
+            raise
+        DownloadTask.update(
+            state="excluded" if exc.code == "excluded" else "failed", error_code=exc.code
+        ).where(DownloadTask.id == item.id).execute()
+    if report_progress:
         progress(job_id)
 
 
-def skip_download(item, job_id):
+def skip_download(item, job_id, *, report_progress=True):
     DownloadTask.update(state="skipped", error_code=None).where(
         DownloadTask.id == item.id
     ).execute()
@@ -501,64 +848,81 @@ def skip_download(item, job_id):
     CollectionItem.update(download_skipped=True).where(
         CollectionItem.run.in_(runs) & (CollectionItem.artwork_id == item.artwork_id)
     ).execute()
-    progress(job_id)
+    if report_progress:
+        progress(job_id)
 
 
 async def fetch_avatars(ctx, job_id, owner, credential, failed: set):
     """Best-effort local profile images. Failures keep any previous avatar."""
+    if "download" not in ctx:
+        async with MediaDownloadSession(
+            on_retry=lambda error, delay: jobs.backoff(job_id, owner, error, delay)
+        ) as fetch:
+            return await fetch_avatars(
+                {**ctx, "download": fetch}, job_id, owner, credential, failed
+            )
     settings = ctx["settings"]
     fetch = media_fetcher(ctx, job_id, owner)
-    while len(failed) < MAX_AVATAR_FAILURES:
-        query = Artist.select().where(
-            Artist.avatar_url.is_null(False)
-            & (
-                Artist.avatar_fetched_url.is_null()
-                | (Artist.avatar_fetched_url != Artist.avatar_url)
-            )
-        )
-        if failed:
-            query = query.where(Artist.id.not_in(list(failed)))
-        artist = query.order_by(Artist.id).first()
-        if artist is None:
-            return
+
+    def check():
         guard(job_id, owner, credential)
-        url = artist.avatar_url
-        try:
-            with storage_budget.hold(
-                settings,
-                job_id,
-                owner,
-                storage.MAX_AVATAR_BYTES,
-                lambda: guard(job_id, owner, credential),
-            ):
-                content = await interruptible(fetch(url), job_id, owner, credential)
-                relative, media_type = await disk_operation(
-                    storage.store_avatar, settings, artist.id, content
+
+    with ExitStack() as workspaces:
+        reused = None
+        while len(failed) < MAX_AVATAR_FAILURES:
+            query = Artist.select().where(
+                Artist.avatar_url.is_null(False)
+                & (
+                    Artist.avatar_fetched_url.is_null()
+                    | (Artist.avatar_fetched_url != Artist.avatar_url)
                 )
-        except AdapterError as exc:
-            if exc.code in ("auth_expired", "rate_limited"):
-                raise
-            failed.add(artist.id)
-            continue
-        except DomainError as exc:
-            if exc.code == "credential_changed":
-                raise
-            failed.add(artist.id)
-            continue
-        with db.atomic("IMMEDIATE"):
-            guard(job_id, owner, credential)
-            previous = Artist.get_by_id(artist.id).avatar_path
-            Artist.update(
-                avatar_path=relative, avatar_media_type=media_type, avatar_fetched_url=url
-            ).where((Artist.id == artist.id) & (Artist.avatar_url == url)).execute()
-        if previous and previous != relative:
+            )
+            if failed:
+                query = query.where(Artist.id.not_in(list(failed)))
+            artist = query.order_by(Artist.id).first()
+            if artist is None:
+                return
+            check()
+            url = artist.avatar_url
             try:
-                await disk_operation(storage.avatar_file(settings, previous).unlink, True)
-            except (OSError, DomainError):
-                pass
+                with storage_budget.hold(settings, job_id, owner, storage.MAX_AVATAR_BYTES, check):
+                    content = await interruptible(fetch(url), job_id, owner, credential)
+                    if settings.cache_dir is not None and reused is None:
+                        # Only the NAS publication workspace is borrowed by avatar
+                        # stores; each avatar keeps its own local scratch lifecycle.
+                        reused = workspaces.enter_context(
+                            tempfiles.reuse_blobs(settings, guard=check)
+                        )
+                    relative, media_type = await disk_operation(
+                        storage.store_avatar, settings, artist.id, content
+                    )
+            except AdapterError as exc:
+                if exc.code in ("auth_expired", "rate_limited"):
+                    raise
+                failed.add(artist.id)
+                continue
+            except DomainError as exc:
+                if exc.code == "credential_changed":
+                    raise
+                failed.add(artist.id)
+                continue
+            with db.atomic("IMMEDIATE"):
+                check()
+                previous = Artist.get_by_id(artist.id).avatar_path
+                Artist.update(
+                    avatar_path=relative, avatar_media_type=media_type, avatar_fetched_url=url
+                ).where((Artist.id == artist.id) & (Artist.avatar_url == url)).execute()
+            if previous and previous != relative:
+                try:
+                    await disk_operation(storage.avatar_file(settings, previous).unlink, True)
+                except (OSError, DomainError):
+                    pass
 
 
-def finish_collection(job_id, owner):
+def finish_collection(job_id, owner, credential):
+    with db.atomic("IMMEDIATE"):
+        guard(job_id, owner, credential)
+        previews.enqueue_missing(job_id, limit=100)
     progress(job_id)
     total = DownloadTask.select().where(DownloadTask.job == job_id).count()
     Job.update(total=total, phase="finished").where(Job.id == job_id).execute()
@@ -578,6 +942,9 @@ async def scan(ctx, adapter, job, pixiv_id, owner, credential):
     refresh_before = schedule.refresh_before()
     scopes = ("public", "private") if job.scope == "all" else (job.scope,)
     avatar_failures = set()
+    with db.atomic("IMMEDIATE"):
+        guard(job_id, owner, credential)
+        previews.enqueue_missing(job_id, limit=100)
     # Recover persisted files first, before advancing a cursor or making another page call.
     await download_pending(ctx, job_id, owner, credential)
     for scope in scopes:
@@ -608,7 +975,9 @@ async def scan(ctx, adapter, job, pixiv_id, owner, credential):
             await download_pending(ctx, job_id, owner, credential)
             await fetch_avatars(ctx, job_id, owner, credential, avatar_failures)
             run = CollectionRun.get_by_id(run.id)
-    finish_collection(job_id, owner)
+    with db.atomic("IMMEDIATE"):
+        guard(job_id, owner, credential)
+        finish_collection(job_id, owner, credential)
 
 
 async def restore(ctx, adapter, job, owner, credential):
@@ -619,6 +988,7 @@ async def restore(ctx, adapter, job, owner, credential):
     await download_pending(ctx, job_id, owner, credential)
     if not DownloadTask.select().where(DownloadTask.job == job_id).exists():
         Job.update(phase="fetching").where(Job.id == job_id).execute()
+        await artwork_slot(job_id, owner, credential)
         remote = await interruptible(adapter.artwork(artwork_id), job_id, owner, credential)
         if remote.id != artwork_id:
             raise AdapterError("contract")
@@ -634,24 +1004,47 @@ async def restore(ctx, adapter, job, owner, credential):
     await make_preview(
         ctx["settings"], artwork_id, job_id, owner, lambda: guard(job_id, owner, credential)
     )
-    finish_collection(job_id, owner)
+    with db.atomic("IMMEDIATE"):
+        guard(job_id, owner, credential)
+        finish_collection(job_id, owner, credential)
 
 
 async def execute(ctx, job_id, owner):
     credential = None
     try:
-        cookie, credential = accounts.load_credential(ctx["settings"])
+        cookie, ciphertext = accounts.load_credential(ctx["settings"])
+        credential = _CredentialState(ciphertext)
         job = jobs.require_job(job_id)
         Job.update(phase="validating").where(Job.id == job_id).execute()
         factory = ctx.get("adapter_factory", CookiePixivAdapter)
         async with factory(cookie, interval=schedule.request_interval()) as adapter:
             adapter.on_retry = lambda error, delay: jobs.backoff(job_id, owner, error, delay)
+            validated_id = None
+
+            async def rotated(candidate: str, pixiv_id: str | None):
+                guard(job_id, owner, credential)
+                if pixiv_id is None or (validated_id is not None and pixiv_id != validated_id):
+                    raise DomainError(
+                        "account_mismatch", "기존과 같은 Pixiv 계정의 쿠키를 등록해 주세요.", 409
+                    )
+                # No await between CAS and updating the shared guard state: all
+                # outstanding watch/disk checks advance only for our own rotation.
+                credential.ciphertext = accounts.adopt_verified_cookie(
+                    ctx["settings"], candidate, pixiv_id, credential.ciphertext
+                )
+
+            adapter.on_cookie = rotated
             cookie = None
             pixiv_id = await interruptible(adapter.validate(), job_id, owner, credential)
-            accounts.validated(credential, pixiv_id)
+            accounts.validated(credential.ciphertext, pixiv_id)
+            validated_id = pixiv_id
             if job.kind == "validate":
-                Job.update(processed=1, total=1, phase="finished").where(Job.id == job_id).execute()
-                jobs.finish(job_id, owner, "succeeded")
+                with db.atomic("IMMEDIATE"):
+                    guard(job_id, owner, credential)
+                    Job.update(processed=1, total=1, phase="finished").where(
+                        Job.id == job_id
+                    ).execute()
+                    jobs.finish(job_id, owner, "succeeded")
                 jobs.resume_waiting_auth()
             elif job.kind in ("restore", "repair"):
                 await restore(ctx, adapter, job, owner, credential)
@@ -662,7 +1055,7 @@ async def execute(ctx, job_id, owner):
     except AdapterError as exc:
         if exc.code == "auth_expired":
             if credential:
-                accounts.authentication_failed(credential)
+                accounts.authentication_failed(credential.ciphertext)
             jobs.finish(job_id, owner, "waiting_auth", exc.code)
         else:
             jobs.finish(job_id, owner, "failed", exc.code)

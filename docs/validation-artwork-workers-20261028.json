@@ -1,0 +1,195 @@
+{
+  "checked_at_utc": "2026-10-28T10:31:53Z",
+  "request": "Keep the queue; eight artwork workers at once while another worker keeps listing bookmarks",
+  "deployment": {
+    "host": "archiver",
+    "url": "http://archiver:28000",
+    "image": "pixchive:archiver-artwork-workers-r3-20261028",
+    "image_id": "sha256:6f2a1407f2db9abee0073bb52c04237690041db386a8a2082c30b69302007d14",
+    "base_image": "pixchive:archiver-worker-tuning-20261028",
+    "rolled_back_images": [
+      "pixchive:archiver-artwork-workers-20261028",
+      "pixchive:archiver-artwork-workers-r2-20261028"
+    ],
+    "schema": 10,
+    "favorites_included": false,
+    "source_hashes": {
+      "app/services/collection.py": "5129042d26ab9638d76e624e9150640d7ea976722c7ba16e39b2525d49d93eba",
+      "app/worker.py": "e4ac4bd71674da1ed6aad2db8abfc0b6eeb2b35b8b6a9ab9372417adf076cd36"
+    },
+    "archive_hashes": {
+      "image.tar": "d980a83d6eba020f7ab795b4a23411bb7bce7140183631eeb5ce94af4f5b0ba8",
+      "patch.tar.gz": "9337613764f844ee29ba7868c9457315eb2f12c3dc30a43ddd639909d1561e8a"
+    },
+    "private_release_directories": [
+      "/mnt/storage/pixchive/releases/artwork-workers-20261028",
+      "/mnt/storage/pixchive/releases/artwork-workers-r2-20261028",
+      "/mnt/storage/pixchive/releases/artwork-workers-r3-20261028"
+    ],
+    "hourly_full_backup_preserved": true,
+    "cache_and_nas_paths_unchanged": true
+  },
+  "implementation": {
+    "artwork_workers": 8,
+    "pages_per_artwork": 3,
+    "media_connections_per_job": 8,
+    "io_threads": 32,
+    "scanner_runs_concurrently": true,
+    "phases": [
+      "scanning_<scope>",
+      "downloading",
+      "finished"
+    ],
+    "completion_conditioned_on_same_url_pending_row": true,
+    "nas_copy_verified_before_media_lock": true,
+    "in_process_media_lock_queue": true,
+    "lock_wait_guard_seconds": 0.5,
+    "event_loop_guard_cache_seconds": 1,
+    "dispatcher_db_work_off_event_loop": true,
+    "read_first_schedule_lease_child_passes": true,
+    "shared_budget_per_busy_period": true,
+    "shared_budget_idle_release_seconds": 2,
+    "image_completion_in_ready_transaction": true,
+    "progress_interval_seconds": 5,
+    "avatar_url_race_keeps_shown_file": true
+  },
+  "verification": {
+    "worktree_backend_passed": 602,
+    "worktree_ruff_files": 98,
+    "v10_release_backend_passed": 590,
+    "release_ruff_files": 96,
+    "docker_build": "passed",
+    "openapi_sha256": "86829f449081cc83be93dad823b15a73db5811a1408cf65e1a05944a527e2f82",
+    "openapi_unchanged": true,
+    "frontend_changed": false,
+    "new_regression_tests": {
+      "artwork_workers": 13,
+      "budget_concurrency": 21,
+      "publication_lock": 12,
+      "nas_contention": 5,
+      "avatar_url_race": 1
+    }
+  },
+  "nas_sqlite_measurements_ms": {
+    "production_db_connection_open": {
+      "p50": 105.6,
+      "p90": 240.1
+    },
+    "production_db_begin_immediate": {
+      "p50": 113.3,
+      "p90": 224
+    },
+    "production_db_read_on_open_connection": {
+      "p50": 0.3,
+      "p90": 22.4
+    },
+    "uncontended_nas_db_connection_open": {
+      "p50": 22.4,
+      "p90": 44.9
+    },
+    "uncontended_nas_db_write_transaction_full_sync": {
+      "p50": 73,
+      "p90": 124.9
+    }
+  },
+  "rollout": [
+    {
+      "image": "artwork-workers",
+      "result": "first attempt stopped at cp -p on NFS; previous web/worker restarted after about 7 s"
+    },
+    {
+      "image": "artwork-workers",
+      "deployed_utc": "09:43:05",
+      "observed_seconds": 214,
+      "originals": 16,
+      "per_minute": 4.5,
+      "baseline_per_minute_same_backup": 19.5,
+      "rolled_back_utc": "09:48:44",
+      "new_files_hash_verified": 57,
+      "new_bytes_hash_verified": 92932956
+    },
+    {
+      "image": "artwork-workers-r2",
+      "deployed_utc": "10:00:57",
+      "observed_seconds": 188,
+      "originals": 29,
+      "per_minute": 9.3,
+      "baseline_per_minute_without_backup": 36.8,
+      "rolled_back_utc": "10:13:54",
+      "lease_expired_during_rollback_utc": "10:13:46"
+    },
+    {
+      "image": "artwork-workers-r3",
+      "deployed_utc": "10:20:40",
+      "observed_from_utc": "10:20:50",
+      "job_finished_utc": "10:31:09",
+      "originals_and_zips": 488,
+      "per_minute": 47.3,
+      "baseline_per_minute_same_backup": 18.5,
+      "download_only_tail_per_minute": [
+        69,
+        86
+      ]
+    }
+  ],
+  "runtime": {
+    "backup_running_during_r3": true,
+    "scanner_pages_committed_while_downloading": [
+      [
+        4748,
+        4795
+      ],
+      [
+        4795,
+        "complete"
+      ]
+    ],
+    "pending_growth_consumed": [
+      [
+        31,
+        135
+      ],
+      [
+        64,
+        327
+      ]
+    ],
+    "shared_reservation_bytes": 2717908992,
+    "reservation_after_finish": 0,
+    "job": {
+      "id": "a17751f9-2f02-4396-a26a-db12f155e135",
+      "state": "succeeded",
+      "processed": 28371,
+      "failed": 0,
+      "discovered": 4865
+    }
+  },
+  "post_update": {
+    "database_quick_check": "ok",
+    "foreign_key_errors": 0,
+    "schema": 10,
+    "preexisting_asset_records_preserved": 32864,
+    "preexisting_asset_records_missing": 0,
+    "admin_and_key_preserved": true,
+    "automatic_setting_keys_changed": [
+      "pixiv_browser_state",
+      "worker_heartbeat"
+    ],
+    "helper_redis_preserved": true,
+    "new_ready_assets_hash_verified": 591,
+    "new_bytes_hash_verified": 829267845,
+    "new_files_mismatched": 0,
+    "lease_expirations_before": 185,
+    "lease_expirations_after": 185,
+    "storage_reservations_left": 0,
+    "cache_and_nas_temporary_workspaces_left": 0,
+    "web_health": "healthy",
+    "worker_warnings": 0,
+    "in_app_browser_job_detail": "28,371/28,371, failed 0"
+  },
+  "limits": [
+    "Throughput depends on hourly backups, NAS load, artwork sizes and the Pixiv detail request interval; no fixed speedup multiple is claimed.",
+    "Full-account recollection, long 429/outage, forced kill and completion of the running full backup were not verified.",
+    "SQLite WAL on NFS remains an unsupported trial; local-only favorites (schema v11) are not deployed."
+  ]
+}

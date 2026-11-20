@@ -51,6 +51,17 @@ def connect_readonly(path: Path) -> sqlite3.Connection:
     return sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
 
 
+def scrub_logins(connection: sqlite3.Connection):
+    """Browser logins and login throttles stay with the running install.
+
+    secure_delete overwrites the removed rows instead of leaving them in free pages.
+    """
+    connection.execute("PRAGMA secure_delete=ON")
+    with connection:
+        connection.execute("DELETE FROM session")
+        connection.execute("DELETE FROM login_attempt")
+
+
 def check_snapshot(path: Path, known_versions: set[int] | None = None) -> dict:
     if path.is_symlink():
         raise BackupError("unsafe_file", "스냅샷 DB는 심볼릭 링크가 아닌 파일이어야 합니다.")
@@ -273,6 +284,7 @@ def create(settings: Settings, output: Path, *, media: bool) -> dict:
             ):
                 source.backup(destination)
                 destination.execute("PRAGMA journal_mode=DELETE")
+                scrub_logins(destination)
             with read_file(snapshot) as file:
                 os.fsync(file.fileno())
             summary = check_snapshot(snapshot)
@@ -459,6 +471,7 @@ def _restore_locked(
     initialize(data, restoring=True)
     try:
         migrate()
+        db.execute_sql("PRAGMA secure_delete=ON")
         from app.core.time import now
         from app.models.entities import (
             Artist,
@@ -466,6 +479,8 @@ def _restore_locked(
             IntegrityIssue,
             Job,
             Lease,
+            LoginAttempt,
+            Session,
             Setting,
             StorageReservation,
         )
@@ -492,6 +507,9 @@ def _restore_locked(
             Job.update(summary=None, processed=0, failed=0, total=None, phase="verifying").where(
                 Job.id.in_(unfinished_checks)
             ).execute()
+            # Older snapshots may still hold browser logins; a restore always starts signed out.
+            Session.delete().execute()
+            LoginAttempt.delete().execute()
             Lease.delete().execute()
             StorageReservation.delete().execute()
             Job.update(storage_budget=None).execute()

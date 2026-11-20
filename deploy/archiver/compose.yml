@@ -1,0 +1,150 @@
+name: pixchive
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-app: &app
+  image: ${PIXCHIVE_IMAGE:?Set PIXCHIVE_IMAGE to the prepared fixed trial tag or digest}
+  platform: linux/amd64
+  restart: unless-stopped
+  init: true
+  stop_grace_period: 60s
+  logging: *logging
+  environment:
+    PIXCHIVE_NFS_TRIAL: ${PIXCHIVE_NFS_TRIAL:?Explicitly set PIXCHIVE_NFS_TRIAL=1}
+    PIXCHIVE_DATA_DIR: /app/data
+    PIXCHIVE_CACHE_DIR: /cache
+    PIXCHIVE_KEY_FILE: /run/pixchive-secrets/credential.key
+    PIXCHIVE_SETUP_TOKEN_FILE: /run/pixchive-secrets/setup-token
+    PIXCHIVE_REDIS_URL: redis://redis:6379/0
+    PIXCHIVE_BROWSER_URL: http://pixiv-browser:8765
+    PIXCHIVE_BROWSER_REFRESH_SECONDS: ${PIXCHIVE_BROWSER_REFRESH_SECONDS:-600}
+    PIXCHIVE_PUBLIC_URL: ${PIXCHIVE_PUBLIC_URL:-http://archiver:28000}
+    PIXCHIVE_ALLOWED_ORIGINS: ${PIXCHIVE_ALLOWED_ORIGINS:-}
+  entrypoint:
+    - /bin/sh
+    - -ec
+    - |
+      umask 077
+      [ "$${PIXCHIVE_NFS_TRIAL}" = 1 ] || { echo 'NFS TRIAL acknowledgement required.' >&2; exit 1; }
+      [ -f /app/data/.pixchive-storage-id ] && [ ! -L /app/data/.pixchive-storage-id ] || { echo 'Storage marker missing.' >&2; exit 1; }
+      [ -s /app/data/pixchive.db ] && [ ! -L /app/data/pixchive.db ] || { echo 'Migrated database missing.' >&2; exit 1; }
+      exec "$$@"
+    - pixchive-start
+  volumes:
+    - type: bind
+      source: ${PIXCHIVE_CACHE_ROOT:-/cache/pixchive}
+      target: /cache
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PIXCHIVE_ROOT:-/mnt/storage/pixchive}/data
+      target: /app/data
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PIXCHIVE_ROOT:-/mnt/storage/pixchive}/secrets
+      target: /run/pixchive-secrets
+      read_only: true
+      bind:
+        create_host_path: false
+  depends_on:
+    redis:
+      condition: service_healthy
+
+services:
+  web:
+    <<: *app
+    command: [/app/.venv/bin/uvicorn, app.main:app, --host, 0.0.0.0, --port, "8000"]
+    ports:
+      - target: 8000
+        published: "28000"
+        host_ip: 0.0.0.0
+        protocol: tcp
+    volumes:
+      - type: bind
+        source: ${PIXCHIVE_CACHE_ROOT:-/cache/pixchive}
+        target: /cache
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${PIXCHIVE_ROOT:-/mnt/storage/pixchive}/data
+        target: /app/data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${PIXCHIVE_ROOT:-/mnt/storage/pixchive}/secrets
+        target: /run/pixchive-secrets
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${PIXCHIVE_ROOT:-/mnt/storage/pixchive}/backups
+        target: /backup
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: [CMD, /app/.venv/bin/python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  worker:
+    <<: *app
+    command: [/app/.venv/bin/arq, app.worker.WorkerSettings]
+
+  pixiv-browser:
+    image: ${PIXCHIVE_BROWSER_IMAGE:?Set PIXCHIVE_BROWSER_IMAGE to the prepared fixed trial tag or digest}
+    platform: linux/amd64
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 60s
+    logging: *logging
+    # Existing launcher reads the 0600 original key as root, then drops to 1000:1000.
+    # Do not override its entrypoint/user or disable the Chromium sandbox.
+    environment:
+      PIXCHIVE_KEY_FILE: /run/pixchive-secrets/credential.key
+      PIXCHIVE_BROWSER_MANAGED_NAVIGATION: "1"
+    volumes:
+      - type: bind
+        source: ${PIXCHIVE_ROOT:-/mnt/storage/pixchive}/browser-state
+        target: /state
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${PIXCHIVE_ROOT:-/mnt/storage/pixchive}/secrets/credential.key
+        target: /run/pixchive-secrets/credential.key
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /run/browser:rw,nosuid,nodev,size=512m,uid=1000,gid=1000,mode=0700
+      - /tmp:rw,nosuid,nodev,size=256m,uid=1000,gid=1000,mode=1777
+    shm_size: 512m
+    security_opt:
+      - seccomp=${PIXCHIVE_ROOT:-/mnt/storage/pixchive}/security/seccomp_profile.json
+
+  redis:
+    image: ${PIXCHIVE_REDIS_IMAGE:-redis:8-alpine}
+    platform: linux/amd64
+    user: "1000:1000"
+    restart: unless-stopped
+    stop_grace_period: 60s
+    logging: *logging
+    entrypoint: [/bin/sh, -ec, 'umask 077; exec redis-server "$$@"', redis-start]
+    command: [--dir, /data, --save, "", --appendonly, "yes", --appendfsync, everysec]
+    volumes:
+      - type: bind
+        source: ${PIXCHIVE_ROOT:-/mnt/storage/pixchive}/redis
+        target: /data
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 10

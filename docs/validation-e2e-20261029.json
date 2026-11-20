@@ -1,0 +1,235 @@
+{
+  "recorded_on_kst": "2026-10-29",
+  "request": "Run end-to-end tests for everything",
+  "data_policy": "Real admin, artworks, keys and settings were not used as test data. Mutating flows ran in an isolated Compose project; the real local server and archiver were checked read-only.",
+  "automated": {
+    "backend": {
+      "passed": 557,
+      "warnings": [
+        "StarletteDeprecationWarning (httpx)",
+        "intentional duplicate ZIP entry fixture"
+      ],
+      "ruff_check": "passed",
+      "ruff_format_files": 94,
+      "network": "disconnected during the run"
+    },
+    "browser_helper": {
+      "passed": 166,
+      "ruff_files": 22,
+      "pip_check": "passed"
+    },
+    "frontend": {
+      "tests": 6,
+      "typecheck": "passed",
+      "production_build": "passed"
+    },
+    "openapi_matches_saved": true
+  },
+  "isolated_stack": {
+    "project": "pixchive-e2e",
+    "url": "http://127.0.0.1:18080",
+    "image": "pixchive:detail-swipe-20261029",
+    "backend_files_identical_to_workspace": 70,
+    "synthetic_pixiv": "QA-only worker entry point injecting adapter_factory, download and encode into the real worker; dataset re-read on every call",
+    "synthetic_data": {
+      "artists": 5,
+      "artworks": 30,
+      "kinds": [
+        "illustration",
+        "manga",
+        "ugoira",
+        "r18"
+      ]
+    },
+    "real_pixiv_requests": "none, except loading the official login page inside the QA login browser"
+  },
+  "scenarios": {
+    "1_first_archive": {
+      "artworks_matched": 16,
+      "work_tags": 28,
+      "translations": 36,
+      "r18_policy": "metadata only, originals after allowing R-18",
+      "ugoira_ready": 2
+    },
+    "2_search": {
+      "text_queries_passed": 10,
+      "filters_passed": 9,
+      "previous_artist_name": true,
+      "alias": true,
+      "note_search": "not a search target by design"
+    },
+    "3_tag_conflict": {
+      "local_removal_keeps_remote": true,
+      "remote_change_keeps_other_local_tags": true
+    },
+    "4_duplicates_and_failures": {
+      "merged_requests": [
+        "two concurrent keys",
+        "same key replay",
+        "UI re-click"
+      ],
+      "worker_sigkill_and_redis_flushall": "same job redelivered from SQLite outbox and completed",
+      "pages": 27,
+      "duplicate_assets": 0,
+      "re_requested_in_flight_pages": 3,
+      "leftover_reservations_leases_tmp": 0,
+      "commit_crash_injection": "not run E2E (backend regression scope)"
+    },
+    "5_remote_changes": [
+      "artist rename with previous name",
+      "public/private switch",
+      "unbookmark kept as not_seen",
+      "masked work shown as access unconfirmed",
+      "title change history and snapshot",
+      "new revision keeps previous original"
+    ],
+    "6_partial_failures": {
+      "distinct_states": [
+        "page unavailable",
+        "ugoira ZIP validation",
+        "conversion failure",
+        "rate limited",
+        "waiting_auth with automatic resume after revalidation",
+        "waiting_storage with needed and free space"
+      ],
+      "retry_redownloaded_files": 2
+    },
+    "7_local_delete": {
+      "excluded_on_next_sync": true,
+      "restored_only_by_explicit_action": true
+    },
+    "8_viewing": {
+      "page_buttons_and_keys": true,
+      "fullscreen_zoom_and_focus": true,
+      "touch_swipe": true,
+      "ugoira_playback_loop": true,
+      "neighbor_navigation": "4/18 -> 5/18",
+      "list_return_scroll": [
+        900,
+        900
+      ],
+      "focus_restored": true
+    },
+    "9_access_control": {
+      "unauthenticated_401_endpoints": 11,
+      "csrf_missing_or_forged": 403,
+      "foreign_origin": 403,
+      "after_logout": 401,
+      "secrets_in_logs_api_db": 0,
+      "log_lines_scanned": 1695
+    },
+    "10_restore": {
+      "backup": {
+        "artworks": 28,
+        "files": 122,
+        "mirror_copied": 127,
+        "verification": "sha256",
+        "complete": true
+      },
+      "verify_backup_problems": 0,
+      "restore": {
+        "restored_files": 127,
+        "missing": 0,
+        "schema": 11
+      },
+      "preserved_after_restore": [
+        "note",
+        "alias",
+        "local tags",
+        "artist name history",
+        "exclusion",
+        "saved list and favorite",
+        "media and video",
+        "admin login"
+      ]
+    }
+  },
+  "other_checks": [
+    "saved lists modal/sheet, duplicate name, rename, delete, default list protection, legacy URL",
+    "artist/tag directories, alias/account/translation search, tag rename and merge preview",
+    "jobs: running first, pause/resume, cancel, retry",
+    "settings: display rating, download rating, schedule, conversion concurrency, full refresh 27 rechecks with 0 re-downloads",
+    "artwork ZIP and metadata export",
+    "preview regeneration",
+    "integrity check: corruption detected and served as 404, repaired with same asset id and hash, recheck 0",
+    "login browser: noVNC shows official Pixiv login, completion without login rejected",
+    "mobile 390x844: 9 screens without horizontal overflow, FAB above bottom navigation",
+    "browser console errors: 0"
+  ],
+  "fixes": [
+    {
+      "issue": "Creating the first administrator from / landed on /library instead of /setup",
+      "cause": "React Router v7 applies navigate() as a transition; the session update rendered first and the catch-all route redirected / to /library",
+      "change": "catch-all landing becomes /setup right after setup"
+    },
+    {
+      "issue": "With the login browser disabled, the connection card told a connected account to connect",
+      "change": "describe the stored connection (connected or needs re-check)"
+    },
+    {
+      "issue": "Job detail showed 'rating excluded' for artworks and for files with near-identical labels",
+      "change": "'등급 제외 작품' and '등급 정책으로 건너뛴 파일'"
+    }
+  ],
+  "fix_verification": {
+    "typecheck": "passed",
+    "frontend_tests": 6,
+    "production_build": "passed",
+    "fresh_install_first_run": "/ -> /setup",
+    "normal_login": "/ -> /library",
+    "qa_regression_pages": 7,
+    "console_errors": 0
+  },
+  "deployment": {
+    "image": "pixchive:e2e-fixes-20261029",
+    "image_id": "sha256:831ce97f88ced5448b7b0de7faa6279992f99849c1a8aa8248f0cff3811051e3",
+    "base_image": "pixchive:detail-swipe-20261029",
+    "web_only_recreated": true,
+    "worker_browser_redis_preserved": true,
+    "health": 200,
+    "database_quick_check": "ok",
+    "foreign_key_errors": 0,
+    "schema": 11,
+    "artworks": 29,
+    "assets": 261,
+    "fixture_artworks": 0,
+    "archiver_unchanged": true
+  },
+  "real_local_read_only": {
+    "pixiv": "connected, automatic re-authentication on",
+    "worker": "connected",
+    "artworks": 29,
+    "artists": 17,
+    "translation_search_parity": {
+      "アルハイゼン/Alhaitham/알하이탐": 3,
+      "カーヴェ/Kaveh/카베": 2
+    },
+    "detail_pages_loaded": 40,
+    "unauthenticated_401_endpoints": 8,
+    "worker_version_skew_backend_files": 9
+  },
+  "archiver_read_only": {
+    "containers": "up",
+    "web": "healthy",
+    "health": 200,
+    "errors_last_hour": {
+      "web": 0,
+      "worker": 0,
+      "helper": 0
+    },
+    "hourly_backup_running": true
+  },
+  "observations": [
+    "file list does not mark current vs previous revision (needs an API field)",
+    "a damaged file shows the artwork as waiting for download",
+    "compatibility validate API: a validate job left in waiting_auth absorbs later validate requests until retried (the UI does not use this API)",
+    "backups include login sessions, so existing cookies work on a restored server",
+    "short password error is generic"
+  ],
+  "limits": [
+    "No real-account collection in this E2E (synthetic Pixiv)",
+    "No physical phone, iOS Safari or two-finger pinch; touch via Chrome touch emulation"
+  ],
+  "screenshots": "C:/Users/zeus8/.codex/visualizations/2026/10/25/01a173b8-805a-7022-835b-257894f3147a/e2e-qa-*-20261029.png",
+  "qa_tools": ".test-data/e2e-20261029 (compose files, QA worker, dataset, inspection scripts)"
+}

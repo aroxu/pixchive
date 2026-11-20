@@ -1,0 +1,17 @@
+[Unit]
+Description=Pixchive consistent media backup and private recovery bundle (NFS TRIAL)
+Requires=docker.service
+Wants=network-online.target
+After=docker.service network-online.target remote-fs.target pixchive.service
+RequiresMountsFor=/mnt/storage/pixchive /cache/pixchive
+
+[Service]
+Type=oneshot
+User=aroxu
+WorkingDirectory=/mnt/storage/pixchive/deploy
+EnvironmentFile=/mnt/storage/pixchive/deploy/.env
+UMask=0077
+ExecStart=/bin/sh /mnt/storage/pixchive/deploy/start.sh backup
+TimeoutStartSec=infinity
+StandardOutput=append:/mnt/storage/pixchive/logs/backup.log
+StandardError=append:/mnt/storage/pixchive/logs/backup.log

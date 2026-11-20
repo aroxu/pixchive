@@ -134,4 +134,5 @@ def test_migration_and_wal(client):
         (8,),
         (9,),
         (10,),
+        (11,),
     ]

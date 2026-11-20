@@ -130,6 +130,7 @@ type ScheduleDraft = Partial<
     | "full_refresh_days"
     | "metadata_refresh_days"
     | "request_interval_ms"
+    | "artworks_per_minute"
   >
 >;
 
@@ -327,6 +328,16 @@ export function ScheduleCard({ connected }: { connected: boolean }) {
             value={current.metadata_refresh_days}
             options={[7, 14, 30, 90, 180, 365].map((n) => [n, ko.afterDays(n)])}
             onChange={(v) => change("metadata_refresh_days", v)}
+          />
+          <Choice
+            label={ko.artworksPerMinute}
+            help={ko.artworksPerMinuteHelp}
+            value={current.artworks_per_minute}
+            options={[1, 2, 3, 5, 10, 20, 30, 60].map((n) => [
+              n,
+              ko.artworksPerMinuteOption(n),
+            ])}
+            onChange={(v) => change("artworks_per_minute", v)}
           />
           <Choice
             label={ko.requestInterval}

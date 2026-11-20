@@ -2,7 +2,7 @@ import secrets
 from typing import Annotated
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Header, Path, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, Path, Query, Request, Response, WebSocket
 from fastapi.responses import FileResponse, StreamingResponse
 
 from app.api import contracts as c
@@ -18,6 +18,7 @@ from app.core.query import (
 from app.services import (
     accounts,
     auth,
+    browser_auth,
     directory,
     export,
     inventory,
@@ -29,6 +30,7 @@ from app.services import (
     remote_history,
     repair,
     retention,
+    saved_collections,
     schedule,
     storage,
     system,
@@ -36,9 +38,13 @@ from app.services import (
 )
 
 public = APIRouter(prefix="/api")
+browser_sockets = APIRouter(prefix="/api")
 IdempotencyKey = Annotated[str, Header(min_length=1, max_length=128)]
 TagIdentity = Annotated[int, Path(ge=1, le=9_223_372_036_854_775_807)]
 ArtistIdentity = Annotated[str, Path(pattern=r"^[0-9]{1,20}$")]
+CollectionIdentity = Annotated[
+    str, Path(pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+]
 
 
 def session_cookie(request: Request) -> str | None:
@@ -113,12 +119,46 @@ async def account_list():
 
 @protected.put("/accounts/1/credential", response_model=c.Account)
 async def credential(body: c.CredentialInput, request: Request):
-    return accounts.store_credential(request.app.state.settings, body.phpsessid)
+    return browser_auth.store_manual_credential(request.app.state.settings, body.phpsessid)
 
 
 @protected.delete("/accounts/1/credential", status_code=204)
-async def disconnect():
-    accounts.disconnect()
+async def disconnect(request: Request):
+    await browser_auth.disconnect(request.app.state.settings)
+
+
+@protected.get("/accounts/1/browser", response_model=c.BrowserStatus)
+async def browser_status(request: Request):
+    return await browser_auth.status(request.app.state.settings)
+
+
+@protected.post("/accounts/1/browser/open", response_model=c.BrowserStatus)
+async def browser_open(request: Request):
+    return await browser_auth.open_browser(request.app.state.settings)
+
+
+@protected.post("/accounts/1/browser/reauth", response_model=c.BrowserStatus, status_code=202)
+async def browser_reauthenticate(request: Request):
+    return browser_auth.request_reauth(request.app.state.settings)
+
+
+@protected.post("/accounts/1/browser/login", response_model=c.BrowserStatus)
+async def browser_login(request: Request):
+    return await browser_auth.open_browser(request.app.state.settings, login=True)
+
+
+@protected.post("/accounts/1/browser/complete", response_model=c.BrowserStatus, status_code=202)
+async def browser_complete(request: Request):
+    return await browser_auth.complete_login(request.app.state.settings)
+
+
+@browser_sockets.websocket("/accounts/1/browser/view")
+async def browser_view(websocket: WebSocket):
+    await browser_auth.proxy_view(
+        websocket,
+        websocket.app.state.settings,
+        websocket.cookies.get("pixchive_session"),
+    )
 
 
 @protected.get("/artworks", response_model=c.ArtworkList)
@@ -149,6 +189,55 @@ async def schedule_edit(body: c.ScheduleInput):
 @protected.get("/artworks/{artwork_id}", response_model=c.ArtworkDetail)
 async def artwork(artwork_id: str):
     return library.detail(artwork_id)
+
+
+@protected.get("/artworks/{artwork_id}/saved", response_model=c.ArtworkSaveState)
+async def artwork_save_state(artwork_id: str):
+    return saved_collections.save_state(artwork_id)
+
+
+@protected.put("/artworks/{artwork_id}/favorite", response_model=c.ArtworkSaveState)
+async def favorite_artwork(artwork_id: str, body: c.FavoriteInput):
+    return saved_collections.favorite(artwork_id, body.favorite)
+
+
+@protected.get("/collections", response_model=c.SavedCollectionList)
+async def saved_collection_pages(query: Annotated[DirectoryQuery, Query()]):
+    return saved_collections.listing(**query.model_dump())
+
+
+@protected.post("/collections", response_model=c.SavedCollectionView, status_code=201)
+async def create_saved_collection(body: c.CreateCollectionInput):
+    return saved_collections.create(body.name, artwork_id=body.artwork_id)
+
+
+@protected.get("/collections/{collection_id}", response_model=c.SavedCollectionView)
+async def saved_collection_detail(collection_id: CollectionIdentity):
+    return saved_collections.detail(collection_id)
+
+
+@protected.patch("/collections/{collection_id}", response_model=c.SavedCollectionView)
+async def rename_saved_collection(collection_id: CollectionIdentity, body: c.CollectionNameInput):
+    return saved_collections.rename(collection_id, body.name)
+
+
+@protected.delete("/collections/{collection_id}", status_code=204)
+async def delete_saved_collection(collection_id: CollectionIdentity):
+    saved_collections.delete(collection_id)
+
+
+@protected.put(
+    "/collections/{collection_id}/artworks/{artwork_id}", response_model=c.ArtworkSaveState
+)
+async def add_to_saved_collection(collection_id: CollectionIdentity, artwork_id: str):
+    return saved_collections.membership(collection_id, artwork_id, True)
+
+
+@protected.delete(
+    "/collections/{collection_id}/artworks/{artwork_id}", response_model=c.ArtworkSaveState
+)
+async def remove_from_saved_collection(collection_id: CollectionIdentity, artwork_id: str):
+    return saved_collections.membership(collection_id, artwork_id, False)
 
 
 @protected.get("/artworks/{artwork_id}/history", response_model=list[c.HistoryEntry])

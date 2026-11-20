@@ -175,6 +175,96 @@
         }
       }
     },
+    "/api/accounts/1/browser": {
+      "get": {
+        "summary": "Browser Status",
+        "operationId": "browser_status_api_accounts_1_browser_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/1/browser/open": {
+      "post": {
+        "summary": "Browser Open",
+        "operationId": "browser_open_api_accounts_1_browser_open_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/1/browser/reauth": {
+      "post": {
+        "summary": "Browser Reauthenticate",
+        "operationId": "browser_reauthenticate_api_accounts_1_browser_reauth_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/1/browser/login": {
+      "post": {
+        "summary": "Browser Login",
+        "operationId": "browser_login_api_accounts_1_browser_login_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/1/browser/complete": {
+      "post": {
+        "summary": "Browser Complete",
+        "operationId": "browser_complete_api_accounts_1_browser_complete_post",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/artworks": {
       "get": {
         "summary": "Artworks",
@@ -189,6 +279,39 @@
               "maxLength": 300,
               "default": "",
               "title": "Q"
+            }
+          },
+          {
+            "name": "favorite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Favorite"
+            }
+          },
+          {
+            "name": "collection_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Collection Id"
             }
           },
           {
@@ -780,6 +903,424 @@
         }
       }
     },
+    "/api/artworks/{artwork_id}/saved": {
+      "get": {
+        "summary": "Artwork Save State",
+        "operationId": "artwork_save_state_api_artworks__artwork_id__saved_get",
+        "parameters": [
+          {
+            "name": "artwork_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Artwork Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtworkSaveState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/artworks/{artwork_id}/favorite": {
+      "put": {
+        "summary": "Favorite Artwork",
+        "operationId": "favorite_artwork_api_artworks__artwork_id__favorite_put",
+        "parameters": [
+          {
+            "name": "artwork_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Artwork Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FavoriteInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtworkSaveState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections": {
+      "get": {
+        "summary": "Saved Collection Pages",
+        "operationId": "saved_collection_pages_api_collections_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "name",
+                "count"
+              ],
+              "type": "string",
+              "default": "name",
+              "title": "Sort"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedCollectionList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Saved Collection",
+        "operationId": "create_saved_collection_api_collections_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCollectionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedCollectionView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection_id}": {
+      "get": {
+        "summary": "Saved Collection Detail",
+        "operationId": "saved_collection_detail_api_collections__collection_id__get",
+        "parameters": [
+          {
+            "name": "collection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "title": "Collection Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedCollectionView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Rename Saved Collection",
+        "operationId": "rename_saved_collection_api_collections__collection_id__patch",
+        "parameters": [
+          {
+            "name": "collection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "title": "Collection Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CollectionNameInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedCollectionView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Saved Collection",
+        "operationId": "delete_saved_collection_api_collections__collection_id__delete",
+        "parameters": [
+          {
+            "name": "collection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "title": "Collection Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collection_id}/artworks/{artwork_id}": {
+      "put": {
+        "summary": "Add To Saved Collection",
+        "operationId": "add_to_saved_collection_api_collections__collection_id__artworks__artwork_id__put",
+        "parameters": [
+          {
+            "name": "collection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "title": "Collection Id"
+            }
+          },
+          {
+            "name": "artwork_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Artwork Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtworkSaveState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove From Saved Collection",
+        "operationId": "remove_from_saved_collection_api_collections__collection_id__artworks__artwork_id__delete",
+        "parameters": [
+          {
+            "name": "collection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "title": "Collection Id"
+            }
+          },
+          {
+            "name": "artwork_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Artwork Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtworkSaveState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/artworks/{artwork_id}/history": {
       "get": {
         "summary": "Artwork History",
@@ -1351,6 +1892,39 @@
               "maxLength": 300,
               "default": "",
               "title": "Q"
+            }
+          },
+          {
+            "name": "favorite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Favorite"
+            }
+          },
+          {
+            "name": "collection_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Collection Id"
             }
           },
           {
@@ -1946,6 +2520,39 @@
             }
           },
           {
+            "name": "favorite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Favorite"
+            }
+          },
+          {
+            "name": "collection_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Collection Id"
+            }
+          },
+          {
             "name": "artist",
             "in": "query",
             "required": false,
@@ -2437,6 +3044,39 @@
               "maxLength": 300,
               "default": "",
               "title": "Q"
+            }
+          },
+          {
+            "name": "favorite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Favorite"
+            }
+          },
+          {
+            "name": "collection_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Collection Id"
             }
           },
           {
@@ -4159,6 +4799,14 @@
             "type": "boolean",
             "title": "Is Fixture"
           },
+          "favorite": {
+            "type": "boolean",
+            "title": "Favorite"
+          },
+          "collection_count": {
+            "type": "integer",
+            "title": "Collection Count"
+          },
           "thumbnail_url": {
             "anyOf": [
               {
@@ -4359,6 +5007,8 @@
           "collected_at",
           "created_at",
           "is_fixture",
+          "favorite",
+          "collection_count",
           "thumbnail_url",
           "width",
           "height",
@@ -4492,6 +5142,27 @@
         ],
         "title": "ArtworkPage"
       },
+      "ArtworkSaveState": {
+        "properties": {
+          "favorite": {
+            "type": "boolean",
+            "title": "Favorite"
+          },
+          "collection_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Collection Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "favorite",
+          "collection_ids"
+        ],
+        "title": "ArtworkSaveState"
+      },
       "ArtworkSummary": {
         "properties": {
           "id": {
@@ -4545,6 +5216,14 @@
             "type": "boolean",
             "title": "Is Fixture"
           },
+          "favorite": {
+            "type": "boolean",
+            "title": "Favorite"
+          },
+          "collection_count": {
+            "type": "integer",
+            "title": "Collection Count"
+          },
           "thumbnail_url": {
             "anyOf": [
               {
@@ -4592,6 +5271,8 @@
           "collected_at",
           "created_at",
           "is_fixture",
+          "favorite",
+          "collection_count",
           "thumbnail_url",
           "width",
           "height"
@@ -4671,6 +5352,129 @@
           "bookmarked_at"
         ],
         "title": "BookmarkView"
+      },
+      "BrowserStatus": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "starting",
+              "connected",
+              "reauthenticating",
+              "needs_login",
+              "awaiting_confirmation",
+              "unavailable",
+              "error"
+            ],
+            "title": "State"
+          },
+          "last_checked": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Checked"
+          },
+          "last_synced": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced"
+          },
+          "auto_reauth": {
+            "type": "boolean",
+            "title": "Auto Reauth"
+          },
+          "login_pending": {
+            "type": "boolean",
+            "title": "Login Pending",
+            "default": false
+          },
+          "view_available": {
+            "type": "boolean",
+            "title": "View Available"
+          },
+          "message_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "state",
+          "last_checked",
+          "last_synced",
+          "auto_reauth",
+          "view_available",
+          "message_code"
+        ],
+        "title": "BrowserStatus"
+      },
+      "CollectionNameInput": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CollectionNameInput"
+      },
+      "CreateCollectionInput": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "artwork_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{1,20}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artwork Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CreateCollectionInput"
       },
       "CredentialInput": {
         "properties": {
@@ -4855,6 +5659,20 @@
         ],
         "title": "ExclusionList"
       },
+      "FavoriteInput": {
+        "properties": {
+          "favorite": {
+            "type": "boolean",
+            "title": "Favorite"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "favorite"
+        ],
+        "title": "FavoriteInput"
+      },
       "FileList": {
         "properties": {
           "items": {
@@ -4962,6 +5780,10 @@
             ],
             "title": "Provenance"
           },
+          "current": {
+            "type": "boolean",
+            "title": "Current"
+          },
           "url": {
             "anyOf": [
               {
@@ -4991,6 +5813,7 @@
           "height",
           "media_type",
           "provenance",
+          "current",
           "url",
           "download_name"
         ],
@@ -5856,7 +6679,7 @@
           "password": {
             "type": "string",
             "maxLength": 256,
-            "minLength": 12,
+            "minLength": 1,
             "title": "Password"
           }
         },
@@ -5994,6 +6817,65 @@
         ],
         "title": "RestoreResult"
       },
+      "SavedCollectionList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SavedCollectionView"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "SavedCollectionList"
+      },
+      "SavedCollectionView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "artwork_count": {
+            "type": "integer",
+            "title": "Artwork Count"
+          },
+          "created_at": {
+            "type": "integer",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "artwork_count",
+          "created_at"
+        ],
+        "title": "SavedCollectionView"
+      },
       "ScanCounts": {
         "properties": {
           "discovered": {
@@ -6127,6 +7009,19 @@
               }
             ],
             "title": "Request Interval Ms"
+          },
+          "artworks_per_minute": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 60.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artworks Per Minute"
           }
         },
         "additionalProperties": false,
@@ -6163,6 +7058,10 @@
           "request_interval_ms": {
             "type": "integer",
             "title": "Request Interval Ms"
+          },
+          "artworks_per_minute": {
+            "type": "integer",
+            "title": "Artworks Per Minute"
           },
           "next_run_at": {
             "anyOf": [
@@ -6239,6 +7138,7 @@
           "full_refresh_days",
           "metadata_refresh_days",
           "request_interval_ms",
+          "artworks_per_minute",
           "next_run_at",
           "next_mode",
           "last_run_at",

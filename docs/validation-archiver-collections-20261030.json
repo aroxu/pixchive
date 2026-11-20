@@ -1,0 +1,167 @@
+{
+  "recorded_on_kst": "2026-10-30",
+  "request": "Deploy saved collections to archiver because the feature is missing there",
+  "previous_deployment": {
+    "image": "pixchive:archiver-request-limit-20261029",
+    "schema": 10,
+    "collections_included": false,
+    "latest_existing_sync_error": "collection_changed",
+    "active_jobs_at_cutover": 0,
+    "user_configured_artworks_per_minute": 10
+  },
+  "release": {
+    "image": "pixchive:archiver-collections-20261030",
+    "running_image_id": "sha256:644d8709f5731244bd2f2eeffe845fcb7a67694558654ea37fbc3017ad4db61d",
+    "bundle_bytes": 4135305,
+    "bundle_sha256": "ba1e1a572d2de45f57f9eef6e38afe9de18158dd8b65bdf16682c71853229f7c",
+    "release_dir": "/mnt/storage/pixchive/releases/collections-20261030",
+    "dependency_files_identical_to_previous_release": true,
+    "changed_app_files": 14,
+    "collection_download_cache_heartbeat_and_rate_limit_sources_unchanged": true,
+    "local_and_archiver_content": {
+      "app": {
+        "files": 71,
+        "sha256": "db5a6ed8032299ce9dfb8f7623b4b395e991e1764a29d6b953917530bdbb2b63"
+      },
+      "frontend_dist": {
+        "files": 203,
+        "sha256": "a299f14e6a3f9d5873c6d5192ba1005109f6bce1132d01e95104adf672e9952e"
+      },
+      "openapi": {
+        "files": 1,
+        "sha256": "72c1a49f0ade48f3abe772c57e0c505f7437f05bbf4d0b9b399516995484f3b3"
+      }
+    }
+  },
+  "automated": {
+    "backend_passed": 569,
+    "backend_failures": 0,
+    "backend_duration_seconds": 189.07,
+    "backend_network_detached": true,
+    "ruff_lint": "passed",
+    "ruff_format_files": 96,
+    "openapi": "generated and documented JSON equal",
+    "frontend_passed": 6,
+    "typecheck": "passed as part of tsc -b production build",
+    "frontend_build": "Linux node:24-alpine; passed",
+    "runtime_license_generation": "64 dependencies",
+    "helper": "unchanged; not retested"
+  },
+  "actual_database_copy_rehearsal": {
+    "checked_at_kst": "2026-10-30T08:19:06.304322+09:00",
+    "migration_runs": 2,
+    "schema": 11,
+    "all_existing_tables_preserved": true,
+    "preexisting_table_count": 29,
+    "comparison": "SHA-256 of every ordered row across every existing column",
+    "quick_check": "ok",
+    "foreign_key_errors": 0,
+    "artworks": 4189,
+    "assets": 33554,
+    "admin_count": 1,
+    "account_status": "connected",
+    "artworks_per_minute": 10,
+    "saved_collections": 0,
+    "saved_memberships": 0,
+    "favorites": 0,
+    "network": "none",
+    "live_database_mount": "not mounted during rehearsal"
+  },
+  "production": {
+    "checked_at_kst": "2026-10-30T08:23:44.452831+09:00",
+    "sequence": [
+      "confirm zero active jobs and preflight",
+      "gracefully stop web and worker",
+      "use old v10 tools to take a consistent preupdate DB snapshot and state",
+      "save previous.env and container IDs",
+      "change the image line atomically",
+      "migrate with new image and recreate only web and worker",
+      "check health, all preserved archive table contents, key and settings"
+    ],
+    "schema_versions": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    "health": "ok",
+    "web": "healthy",
+    "worker_heartbeat_age_seconds_at_final_check": 3.5,
+    "quick_check": "ok",
+    "foreign_key_errors": 0,
+    "artworks": 4189,
+    "assets": 33554,
+    "admin_count": 1,
+    "account_status": "connected",
+    "key_preserved": true,
+    "preserved_archive_tables": [
+      "admin_user", "artist", "artist_name", "artwork", "artwork_snapshot",
+      "bookmark", "tag", "tag_translation", "artwork_tag", "bookmark_tag",
+      "asset", "tombstone", "ugoira_bundle"
+    ],
+    "changed_archive_tables": [],
+    "changed_setting_keys": ["worker_heartbeat"],
+    "user_configured_artworks_per_minute": 10,
+    "schedule_enabled": true,
+    "fixture_artworks": 0,
+    "saved_collections": 0,
+    "saved_memberships": 0,
+    "favorites": 0,
+    "helper_and_redis_recreated": false,
+    "hourly_full_media_backup_timer": "active; unchanged",
+    "preexisting_v10_backup_container": "left running with its fixed v10 snapshot",
+    "next_backup_invocation_image": "pixchive:archiver-collections-20261030"
+  },
+  "in_app_browser": {
+    "isolated": {
+      "url": "http://localhost:18086",
+      "synthetic_data_only": true,
+      "admin_setup": "passed",
+      "create_list_with_fab_and_desktop_dialog": "passed",
+      "save_to_user_list_and_default_favorites": "passed",
+      "reload_preserves_both_memberships": "passed; both counts 1",
+      "mobile_390x844_create_sheet": {
+        "width": 390,
+        "bottom": 844,
+        "horizontal_overflow": 0
+      },
+      "mobile_390x844_picker_sheet": {
+        "width": 390,
+        "bottom": 844,
+        "horizontal_overflow": 0
+      }
+    },
+    "archiver": {
+      "url": "http://archiver:28000/collections",
+      "existing_admin_session": "preserved",
+      "collections_navigation": "visible",
+      "default_favorites": "visible; 0 artworks",
+      "create_fab_and_desktop_dialog": "passed; cancelled without saving",
+      "library_bookmark_buttons": 24,
+      "picker": "default favorites and create-and-save controls visible",
+      "mobile_390x844_create_sheet": {
+        "width": 390,
+        "bottom": 844,
+        "horizontal_overflow": 0
+      },
+      "mobile_390x844_picker_sheet": {
+        "width": 390,
+        "bottom": 844,
+        "horizontal_overflow": 0
+      },
+      "production_test_lists_or_favorites_created": false,
+      "viewport_overrides_reset": true
+    }
+  },
+  "rollback": "v10 images reject schema 11; use the retained v10 snapshot and matching keys through the documented new-empty-target restore procedure with all DB writers stopped; reverting the image alone is insufficient",
+  "limits": [
+    "No new real Pixiv full synchronization was started during this deployment",
+    "The preexisting collection_changed failure was preserved",
+    "The current v11 full-media NAS backup has not yet completed in this verification window",
+    "NFS SQLite/WAL remains the user's trial configuration"
+  ],
+  "screenshots": [
+    "archiver-collections-deployed.png",
+    "archiver-collections-create-desktop.png",
+    "archiver-collections-create-mobile.png",
+    "archiver-collections-picker-mobile.png",
+    "archiver-collections-qa-picker.png",
+    "archiver-collections-qa-mobile-sheet.png",
+    "archiver-collections-qa-mobile-picker.png"
+  ]
+}

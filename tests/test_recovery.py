@@ -42,6 +42,53 @@ def test_original_revisions_and_path_guard(client, settings):
         storage.store_image(settings, "123", 0, b"not an image")
 
 
+def test_file_list_marks_newest_revision_as_current(admin, settings):
+    library.ingest(remote(), "public")
+    old = storage.store_image(settings, "123", 0, image_bytes(0))
+    old_preview = storage.make_thumbnail(settings, "123", old)
+    new = storage.store_image(settings, "123", 0, image_bytes(1))
+    new_preview = storage.make_thumbnail(settings, "123", new)
+
+    def current():
+        listed = admin.get("/api/artworks/123/files").json()["items"]
+        return {item["id"]: (item["current"], item["state"]) for item in listed}
+
+    assert current() == {
+        new.id: (True, "ready"),
+        new_preview.id: (True, "ready"),
+        old.id: (False, "ready"),
+        old_preview.id: (False, "ready"),
+    }
+    # A damaged newest copy stays current, so the list shows which file needs repair.
+    storage.safe_path(settings, new.path).unlink()
+    assert storage.verify_asset(settings, new) == "missing"
+    assert current()[new.id] == (True, "missing")
+    assert current()[old.id] == (False, "ready")
+    page = admin.get("/api/artworks/123/files?role=original&page_size=1&page=2").json()
+    assert [(item["id"], item["current"]) for item in page["items"]] == [(old.id, False)]
+
+
+def test_damaged_archive_needs_checking_not_a_first_download(client, settings):
+    library.ingest(remote(), "public")
+    asset = storage.store_image(settings, "123", 0, image_bytes(0))
+    assert Artwork.get().archive_status == "complete"
+    path = storage.safe_path(settings, asset.path)
+    damaged = bytearray(path.read_bytes())
+    damaged[len(damaged) // 2] ^= 0xFF
+    path.write_bytes(bytes(damaged))
+    assert storage.verify_asset(settings, asset) == "corrupt"
+    assert Artwork.get().archive_status == "partial"
+    path.unlink()
+    assert storage.verify_asset(settings, asset) == "missing"
+    assert Artwork.get().archive_status == "partial"
+    # Receiving the identical recorded bytes repairs the same record.
+    repaired = storage.store_image(settings, "123", 0, image_bytes(0))
+    assert (repaired.id, repaired.state) == (asset.id, "ready")
+    assert Artwork.get().archive_status == "complete"
+    library.ingest(remote(id="124"), "public")
+    assert Artwork.get_by_id("124").archive_status == "pending"
+
+
 def test_outbox_and_claim_are_idempotent(client):
     a = jobs.enqueue_integrity("one")
     assert jobs.enqueue_integrity("one").id == a.id

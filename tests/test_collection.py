@@ -300,13 +300,13 @@ async def test_one_file_failure_does_not_prevent_other_files(client, settings):
 
 async def test_pause_terminates_active_fetch_before_ack_and_resume_skips_saved(client, settings):
     connected(settings)
-    page = BookmarkPage(items=[work(count=2)], next_cursor=None, complete=True)
+    page = BookmarkPage(items=[work(count=4)], next_cursor=None, complete=True)
     adapter = FakeAdapter({"public": [page]})
     ctx = context(settings, adapter)
     started, stopped = asyncio.Event(), asyncio.Event()
 
     async def fetch(url):
-        if "p0" in url:
+        if "p3" not in url:
             return image_bytes(0)
         started.set()
         try:
@@ -318,6 +318,18 @@ async def test_pause_terminates_active_fetch_before_ack_and_resume_skips_saved(c
     job = jobs.enqueue_account("sync", "one", "public")
     task = asyncio.create_task(run_job(ctx, job.id))
     await asyncio.wait_for(started.wait(), 5)
+    # Pause after the first bounded group is durably complete to verify reuse.
+    async with asyncio.timeout(5):
+        while (
+            not DownloadTask.select()
+            .where(
+                (DownloadTask.job == job.id)
+                & (DownloadTask.page == 2)
+                & (DownloadTask.state == "ready")
+            )
+            .exists()
+        ):
+            await asyncio.sleep(0.01)
     assert jobs.action(job.id, "pause").state == "pausing"
     await asyncio.wait_for(task, 5)
     assert stopped.is_set() and adapter.closed
@@ -325,7 +337,7 @@ async def test_pause_terminates_active_fetch_before_ack_and_resume_skips_saved(c
     jobs.action(job.id, "resume")
     fetched = []
     await run_job(context(settings, FakeAdapter(), fetched), job.id)
-    assert len(fetched) == 1 and "p1" in fetched[0]
+    assert len(fetched) == 1 and "p3" in fetched[0]
     assert Job.get_by_id(job.id).state == "succeeded"
 
 

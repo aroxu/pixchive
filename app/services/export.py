@@ -20,6 +20,8 @@ from app.models.entities import (
     Asset,
     Bookmark,
     BookmarkTag,
+    SavedCollection,
+    SavedCollectionArtwork,
     Tag,
     TagTranslation,
     Tombstone,
@@ -117,6 +119,14 @@ def record(artwork: Artwork, files: list[tuple[str, Asset]] | None = None) -> di
         "archive_status": artwork.archive_status,
         "remote_status": artwork.remote_status,
         "note": artwork.note,
+        "favorite": artwork.favorite,
+        "saved_collections": [
+            {"id": item.collection_id, "name": item.collection.name}
+            for item in SavedCollectionArtwork.select(SavedCollectionArtwork, SavedCollection)
+            .join(SavedCollection)
+            .where(SavedCollectionArtwork.artwork == artwork)
+            .order_by(SavedCollection.name_key, SavedCollection.id)
+        ],
         "sample": artwork.is_fixture,
         "artist": {
             "id": artist.id,
@@ -267,6 +277,12 @@ def library_metadata():
     async def stream():
         head = {"schema_version": SCHEMA_VERSION, "app_version": APP_VERSION}
         head["exported_at"] = iso(now())
+        head["saved_collections"] = [
+            {"id": item.id, "name": item.name, "created_at": item.created_at}
+            for item in SavedCollection.select().order_by(
+                SavedCollection.name_key, SavedCollection.id
+            )
+        ]
         yield json.dumps(head, ensure_ascii=False)[:-1].encode() + b',"artworks":['
         last, first = "", True
         while True:

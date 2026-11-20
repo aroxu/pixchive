@@ -1,0 +1,9 @@
+{
+  "PasswordManagerEnabled": false,
+  "AutofillAddressEnabled": false,
+  "AutofillCreditCardEnabled": false,
+  "BrowserSignin": 0,
+  "SyncDisabled": true,
+  "SafeBrowsingExtendedReportingEnabled": false,
+  "URLBlocklist": ["file://*"]
+}

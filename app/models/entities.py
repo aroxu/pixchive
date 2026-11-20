@@ -90,6 +90,7 @@ class Artwork(Base):
     archive_status = TextField(default="pending")
     remote_status = TextField(default="unknown")
     note = TextField(default="")
+    favorite = BooleanField(default=False)
     is_fixture = BooleanField(default=False)
     metadata_fetched_at = IntegerField(null=True)
     listing_fingerprint = TextField(null=True)
@@ -103,6 +104,22 @@ class ArtworkSnapshot(Base):
 
     class Meta:
         indexes = ((("artwork", "revision"), True),)
+
+
+class SavedCollection(Base):
+    id = TextField(primary_key=True, default=uid)
+    name = TextField()
+    name_key = TextField(unique=True)
+    created_at = IntegerField(default=now)
+
+
+class SavedCollectionArtwork(Base):
+    collection = ForeignKeyField(SavedCollection, on_delete="CASCADE", backref="items")
+    artwork = ForeignKeyField(Artwork, on_delete="CASCADE", backref="saved_collections")
+    added_at = IntegerField(default=now)
+
+    class Meta:
+        indexes = ((("collection", "artwork"), True),)
 
 
 class Bookmark(Base):

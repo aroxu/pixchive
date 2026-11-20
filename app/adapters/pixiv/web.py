@@ -1,9 +1,12 @@
 """Read-only Pixiv web adapter. Cookie headers never leave www.pixiv.net."""
 
 import json
+import random
 import re
 import time
+from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
+from http.cookies import CookieError, SimpleCookie
 from urllib.parse import urlparse
 
 import httpx
@@ -25,6 +28,8 @@ COOKIE_PATTERN = r"[A-Za-z0-9._~-]{16,4096}"
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024
 PAGE_SIZE = 48
 MAX_INTERVAL = 30.0
+INTERVAL_JITTER_RATIO = 0.3
+MAX_INTERVAL_JITTER = 1.0
 
 
 def identifier(value):
@@ -44,6 +49,36 @@ def string_list(value):
     if isinstance(value, list) and all(isinstance(item, str) for item in value):
         return value
     return None
+
+
+def work_tags(raw):
+    block = raw.get("tags")
+    tags = block.get("tags") if isinstance(block, dict) else None
+    if tags is None:
+        return None
+    if not isinstance(tags, list):
+        raise AdapterError("contract")
+    result = []
+    for tag in tags:
+        if not isinstance(tag, dict) or not isinstance(tag.get("tag"), str):
+            raise AdapterError("contract")
+        translations = tag.get("translation")
+        if translations is None:
+            translations = {}
+        if not isinstance(translations, dict):
+            raise AdapterError("contract")
+        provided = {}
+        for language, name in translations.items():
+            if not isinstance(language, str) or not language:
+                raise AdapterError("contract")
+            if name is None:
+                continue
+            if not isinstance(name, str):
+                raise AdapterError("contract")
+            if name.strip():
+                provided[language] = name
+        result.append(RemoteTag(name=tag["tag"], translations=provided))
+    return result
 
 
 class IdentityPage(HTMLParser):
@@ -92,6 +127,8 @@ class WebBridge:
         if not re.fullmatch(COOKIE_PATTERN, cookie):
             raise AdapterError("auth_expired")
         self.cookie = cookie
+        self.pending_cookie = None
+        self._reported_cookie = cookie
         self.client = client or httpx.Client(timeout=20, trust_env=False, follow_redirects=False)
         self.account_id = None
         # A minimum gap between Pixiv page/API requests. Not a guaranteed safe rate.
@@ -101,9 +138,57 @@ class WebBridge:
             raise AdapterError("contract") from None
         self.last_request = None
 
+    def receive_cookie(self, response):
+        """Keep root-scoped session rotations private, including on error responses."""
+        if response.url.scheme != "https" or response.url.host != "www.pixiv.net":
+            return
+        for header in response.headers.get_list("set-cookie"):
+            parsed = SimpleCookie()
+            try:
+                parsed.load(header)
+            except CookieError:
+                continue
+            session = parsed.get("PHPSESSID")
+            if session is None or not re.fullmatch(COOKIE_PATTERN, session.value):
+                continue
+            domain = session["domain"].lower()
+            if domain and domain.removeprefix(".") not in ("pixiv.net", "www.pixiv.net"):
+                continue
+            # We send this session on all Pixiv API/identity paths. A narrower
+            # cookie must not be promoted beyond the path for which it was issued.
+            default_path = response.url.path.rsplit("/", 1)[0] or "/"
+            if (session["path"] or default_path) != "/":
+                continue
+            try:
+                if session["max-age"]:
+                    if not re.fullmatch(r"-?[0-9]+", session["max-age"]):
+                        continue
+                    if int(session["max-age"]) <= 0:
+                        continue
+                elif session["expires"]:
+                    if parsedate_to_datetime(session["expires"]).timestamp() <= time.time():
+                        continue
+            except (ValueError, TypeError, OverflowError):
+                continue
+            if session.value != self.cookie:
+                self.cookie = self.pending_cookie = session.value
+
+    def take_cookie_rotation(self):
+        """Only the private bridge may consume this value, never artwork metadata."""
+        pending, self.pending_cookie = self.pending_cookie, None
+        if pending is None or pending == self._reported_cookie:
+            return None
+        self._reported_cookie = pending
+        return pending
+
     def pace(self):
         if self.interval and self.last_request is not None:
-            wait = self.last_request + self.interval - time.monotonic()
+            # The configured interval stays a minimum. Positive jitter spreads
+            # requests without spending the artwork budget faster or changing it.
+            gap = self.interval + random.uniform(
+                0, min(self.interval * INTERVAL_JITTER_RATIO, MAX_INTERVAL_JITTER)
+            )
+            wait = self.last_request + gap - time.monotonic()
             if wait > 0:
                 time.sleep(wait)
 
@@ -130,6 +215,7 @@ class WebBridge:
                 },
                 follow_redirects=False,
             ) as response:
+                self.receive_cookie(response)
                 if response.is_redirect:
                     destination = urlparse(response.headers.get("location", ""))
                     if destination.hostname == "accounts.pixiv.net" or (
@@ -146,6 +232,7 @@ class WebBridge:
                         and not destination.fragment
                         and re.fullmatch(r"/[a-z]{2}(?:-[a-z]{2})?/", destination.path)
                     ):
+                        self.last_request = time.monotonic()
                         return self.request(destination.path, redirects=redirects + 1)
                     raise AdapterError("contract")
                 if response.status_code == 403:
@@ -326,15 +413,40 @@ class WebBridge:
             raise AdapterError("collection_changed")
         return True
 
+    def artwork_tags(self, artwork_id, raw):
+        tags = work_tags(raw)
+        if not tags or all("ko" in tag.translations for tag in tags):
+            return tags
+        localized = self.get(f"/ajax/illust/{artwork_id}", {"lang": "ko"})
+        if identifier(localized["id"]) != artwork_id:
+            raise AdapterError("contract")
+        # Join by original name: tags may be reordered or edited between requests.
+        by_name = {tag.name: tag.translations for tag in work_tags(localized) or []}
+        for tag in tags:
+            translations = by_name.get(tag.name, {})
+            for language, name in translations.items():
+                if language != "en" or "ko" in translations:
+                    tag.translations.setdefault(language, name)
+            # Pixiv's legacy `en` slot contains the requested locale, even for lang=ko.
+            # An unavailable Korean translation repeats English; do not label it Korean.
+            korean = translations.get("en")
+            if "ko" not in tag.translations and korean:
+                english = tag.translations.get("en")
+                if english and korean != english:
+                    tag.translations["ko"] = korean
+                elif not english:
+                    # Without an English baseline, retain the text without guessing
+                    # whether Pixiv supplied Korean or an English fallback.
+                    tag.translations.setdefault("und", korean)
+        return tags
+
     def artwork(self, artwork_id):
-        raw = self.get(f"/ajax/illust/{artwork_id}")
+        raw = self.get(f"/ajax/illust/{artwork_id}", {"lang": "en"})
         if identifier(raw["id"]) != artwork_id:
             raise AdapterError("contract")
         kind = {0: "illustration", 1: "manga", 2: "ugoira"}[raw["illustType"]]
         caption = PlainText()
         caption.feed(raw.get("description", ""))
-        tag_block = raw.get("tags")
-        tags = tag_block.get("tags") if isinstance(tag_block, dict) else None
         evidence = (
             RatingEvidence(source="pixiv_web", field="xRestrict", value=raw["xRestrict"])
             if "xRestrict" in raw
@@ -352,12 +464,7 @@ class WebBridge:
             rating_evidence=evidence,
             created_at=raw.get("createDate"),
             page_count=raw["pageCount"],
-            work_tags=None
-            if tags is None
-            else [
-                RemoteTag(name=tag["tag"], translations=tag.get("translation") or {})
-                for tag in tags
-            ],
+            work_tags=self.artwork_tags(artwork_id, raw),
         )
         if kind == "ugoira":
             metadata = self.get(f"/ajax/illust/{artwork_id}/ugoira_meta")

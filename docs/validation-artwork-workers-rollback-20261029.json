@@ -1,0 +1,83 @@
+{
+  "recorded_on_kst": "2026-10-29",
+  "request": "Restore the previous collection method after rate limits were reported",
+  "deployment": {
+    "host": "archiver",
+    "url": "http://archiver:28000",
+    "completed_at_utc": "2026-10-28T13:48:26Z",
+    "image": "pixchive:archiver-worker-tuning-20261028",
+    "image_id": "sha256:e41a704fb77a6ffdd92a0ef591dfd74e59ed05f05481819eb924887c474e6bc9",
+    "replaced_image": "pixchive:archiver-artwork-workers-r3-20261028",
+    "schema": 10,
+    "favorites_v11_included": false,
+    "helper_redis_preserved": true,
+    "hourly_full_backup_timer_enabled": true,
+    "cache_and_nas_paths_unchanged": true,
+    "private_evidence_directory": "/mnt/storage/pixchive/releases/artwork-workers-rollback-20261028"
+  },
+  "behavior": {
+    "existing_download_task_queue_preserved": true,
+    "artworks_processed_sequentially": true,
+    "scanner_waits_for_page_downloads": true,
+    "max_parallel_pages_of_one_artwork": 3,
+    "independent_heartbeat_preserved": true,
+    "lease_seconds": 120,
+    "retry_timestamps_not_reset": true,
+    "agent_requested_retry": false
+  },
+  "immediate_verification": {
+    "database_snapshot_quick_check": "ok",
+    "database_quick_check": "ok",
+    "foreign_key_errors": 0,
+    "preexisting_asset_records": 33455,
+    "preexisting_asset_records_preserved": 33455,
+    "missing_asset_records": 0,
+    "admin_and_key_preserved": true,
+    "changed_setting_keys": ["worker_heartbeat"],
+    "lease_expirations_before": 185,
+    "lease_expirations_after": 185,
+    "storage_reservations": 0,
+    "active_jobs": 0,
+    "web": "healthy",
+    "worker": "running",
+    "health_endpoint": "ok",
+    "existing_full_media_rehashed": false
+  },
+  "follow_up": {
+    "checked_at_utc": "2026-10-28T15:04:13Z",
+    "same_job_state": "running",
+    "phase": "scanning_private",
+    "processed": 88,
+    "failed": 0,
+    "asset_records": 33554,
+    "rate_limit_event_count": 4,
+    "local_and_runtime_source_hashes_match": true
+  },
+  "worktree_verification": {
+    "source_files_restored": 8,
+    "related_test_files_restored": 6,
+    "r3_only_test_files_archived_then_removed_from_suite": 4,
+    "local_v11_feature_and_tests_preserved": true,
+    "backend_passed": 557,
+    "ruff_check": "passed",
+    "ruff_format_files": 94,
+    "qa_network_disconnected": true,
+    "qa_container_removed": true,
+    "qa_basetemp_correction": "Initial /dev/shm test basetemp shared the cache mount; switching basetemp to /tmp passed without code changes"
+  },
+  "source_hashes": {
+    "app/services/collection.py": "709a29c39da7536374deb23c226b7299f5816aa1f5ab1004e3c52c9c70f34a05",
+    "app/services/storage.py": "2105c10be288c173ab509c66d50ecaa13498f8cd66398feb0b04ee20248fb2ad",
+    "app/services/storage_budget.py": "18aaeedc5a9b6fcfabbb5bda3202138127f45bb1ba406599819cd830f9295ada",
+    "app/services/jobs.py": "4400c386bb2a9ed3a426c14f5d07992ddd2cb25c9d9bab4d0c4bb05d72dfb602",
+    "app/services/schedule.py": "b6ed41e0aa572009ea183532de5d3479f6370565037bf2f2ad84cd31189def7c",
+    "app/adapters/pixiv/transport.py": "1810579e824bf2cb726daa4a85a1e0c895df15a81592971f2a014493724455c7",
+    "app/core/files.py": "e84fbf65f26a636183af2dc38c43f8597bb63d0ae0e31eb0f4fb7a71f425bca2",
+    "app/worker.py": "d8d4ae3e500c7a289436786274bde4d9dc9a8e40a91d98810f7ec9a35c2b9662"
+  },
+  "limits": [
+    "Rate limiting was observed during private metadata scanning; artwork concurrency is not established as the sole cause",
+    "A resumed run was observed in progress, not a completed recollection or permanent removal of rate limits",
+    "SQLite WAL on NFS remains the existing unsupported trial configuration"
+  ]
+}

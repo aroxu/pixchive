@@ -43,6 +43,11 @@ class Settings:
     # New downloads wait for storage below this free-space reserve.
     min_free_bytes: int = 1024 * 1024 * 1024
     allowed_origins: tuple[str, ...] = ()
+    # Optional private Playwright/noVNC helper; never exposed directly to a browser.
+    browser_url: str | None = None
+    browser_refresh_seconds: int = 600
+    # Optional host-local scratch space; final files and DB always use data_dir.
+    cache_dir: Path | None = None
 
     @property
     def secure_cookie(self) -> bool:
@@ -70,6 +75,12 @@ class Settings:
         reserve = os.getenv("PIXCHIVE_MIN_FREE_MB", "1024")
         if not reserve.isdigit():
             raise ValueError("PIXCHIVE_MIN_FREE_MB must be a non-negative integer")
+        browser_url = os.getenv("PIXCHIVE_BROWSER_URL", "").strip().rstrip("/") or None
+        if browser_url:
+            browser_url = normalize_origin(browser_url)
+        refresh = os.getenv("PIXCHIVE_BROWSER_REFRESH_SECONDS", "600")
+        if not refresh.isdigit() or not 60 <= int(refresh) <= 86400:
+            raise ValueError("PIXCHIVE_BROWSER_REFRESH_SECONDS must be between 60 and 86400")
         return cls(
             data_dir=Path(os.getenv("PIXCHIVE_DATA_DIR", "data")),
             key_file=Path(os.getenv("PIXCHIVE_KEY_FILE", "secrets/credential.key")),
@@ -79,4 +90,9 @@ class Settings:
             frontend_dir=Path(os.getenv("PIXCHIVE_FRONTEND_DIR", "frontend/dist")),
             min_free_bytes=int(reserve) * 1024 * 1024,
             allowed_origins=tuple(dict.fromkeys(extras)),
+            browser_url=browser_url,
+            browser_refresh_seconds=int(refresh),
+            cache_dir=Path(value)
+            if (value := os.getenv("PIXCHIVE_CACHE_DIR", "").strip())
+            else None,
         )

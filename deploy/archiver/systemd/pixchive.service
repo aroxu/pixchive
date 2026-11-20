@@ -1,0 +1,21 @@
+[Unit]
+Description=Pixchive NFS TRIAL containers
+Requires=docker.service
+Wants=network-online.target
+After=docker.service network-online.target remote-fs.target
+RequiresMountsFor=/mnt/storage/pixchive /cache/pixchive
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=aroxu
+WorkingDirectory=/mnt/storage/pixchive/deploy
+EnvironmentFile=/mnt/storage/pixchive/deploy/.env
+UMask=0077
+ExecStart=/bin/sh /mnt/storage/pixchive/deploy/start.sh start
+ExecStop=/bin/sh /mnt/storage/pixchive/deploy/start.sh stop
+TimeoutStartSec=120
+TimeoutStopSec=240
+
+[Install]
+WantedBy=multi-user.target

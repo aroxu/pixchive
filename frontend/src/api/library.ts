@@ -1,7 +1,11 @@
 export const defaultArtworkSort = "created";
+export const favoriteCollectionId = "favorites";
+export const favoriteCollectionPath = `/collections/${favoriteCollectionId}`;
 
 export const filterKeys = [
   "q",
+  "favorite",
+  "collection_id",
   "artist",
   "tag_id",
   "tag",
@@ -34,10 +38,17 @@ export function clearFilters(params: URLSearchParams) {
   return result;
 }
 
-export type LibraryScope = { artist?: string; tag_id?: string };
+export type LibraryScope = {
+  artist?: string;
+  tag_id?: string;
+  favorite?: string;
+  collection_id?: string;
+};
 
 export function scopedParams(params: URLSearchParams, scope: LibraryScope) {
   const next = apiParams(params);
+  if (scope.favorite) next.delete("collection_id");
+  if (scope.collection_id) next.delete("favorite");
   for (const [key, value] of Object.entries(scope)) next.set(key, value);
   return next;
 }
@@ -55,6 +66,21 @@ export function listingContext(origin: unknown) {
       path,
       params: new URLSearchParams(query),
       scope: {} as LibraryScope,
+    };
+  if (path === "/favorites" || path === favoriteCollectionPath)
+    return {
+      path: favoriteCollectionPath,
+      params: new URLSearchParams(query),
+      scope: { favorite: "true" },
+    };
+  const collection = path.match(
+    /^\/collections\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/,
+  );
+  if (collection)
+    return {
+      path,
+      params: new URLSearchParams(query),
+      scope: { collection_id: collection[1] },
     };
   const artist = path.match(/^\/artists\/([0-9]{1,20})$/);
   if (artist)

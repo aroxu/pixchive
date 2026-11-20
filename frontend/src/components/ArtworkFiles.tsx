@@ -74,8 +74,19 @@ export function ArtworkFiles({
                         {ko.roles[file.role] ?? ko.unknownState} ·{" "}
                         {ko.pages(file.page + 1)}
                       </strong>
-                      <span className={`job-state state-${file.state}`}>
-                        {ko.fileStates[file.state] ?? ko.unknownState}
+                      <span className="file-record-badges">
+                        <span
+                          className={
+                            file.current
+                              ? "file-revision-badge current"
+                              : "file-revision-badge"
+                          }
+                        >
+                          {file.current ? ko.fileCurrent : ko.filePrevious}
+                        </span>
+                        <span className={`job-state state-${file.state}`}>
+                          {ko.fileStates[file.state] ?? ko.unknownState}
+                        </span>
                       </span>
                     </div>
                     <p className="section-description">

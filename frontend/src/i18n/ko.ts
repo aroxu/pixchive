@@ -3,6 +3,53 @@ export const ko = {
   tagline: "좋아하는 순간을, 오래도록.",
   archive: "나만의 작품 보관함",
   library: "라이브러리",
+  favorites: "즐겨찾기",
+  favoritesDescription: "특별히 아끼는 작품을 모으는 기본 보관 목록.",
+  favoriteSystemLabel: "기본 목록",
+  favoriteSystemHelp:
+    "항상 사용할 수 있는 기본 목록이에요. 이름을 바꾸거나 삭제할 수 없어요.",
+  favoriteSystemShortHelp: "이름 변경·삭제 불가",
+  customCollections: "내 목록",
+  noFavorites: "아직 즐겨찾기가 없어요",
+  noFavoritesHelp: "작품의 책갈피 버튼을 누르고 즐겨찾기를 선택해 보세요.",
+  emptySavedCollection: "아직 이 목록에 담긴 작품이 없어요",
+  emptySavedCollectionHelp: "작품의 책갈피 버튼에서 이 목록을 선택해 주세요.",
+  savedCollections: "보관 목록",
+  savedCollectionsDescription:
+    "마음에 드는 작품을 이름 붙인 목록에 모아보세요.",
+  saveActions: "보관 목록에 담기",
+  favoriteAdd: (title: string) => `${title} 즐겨찾기에 추가`,
+  favoriteRemove: (title: string) => `${title} 즐겨찾기에서 해제`,
+  collectionChoose: (title: string) => `${title} 보관 목록에 담기`,
+  favoriteLabel: "즐겨찾기",
+  favoriteSaved: "즐겨찾기 됨",
+  chooseCollection: "목록에 담기",
+  chooseCollectionHelp:
+    "한 작품을 여러 목록에 담을 수 있어요. 선택하면 바로 저장됩니다.",
+  collectionName: "목록 이름",
+  createCollection: "새 목록 만들기",
+  createCollectionHelp:
+    "이름을 정해 목록을 만들고, 작품의 책갈피 버튼에서 담아 보세요.",
+  createCollectionAndSave: "만들고 담기",
+  collectionCreated: "새 보관 목록을 만들었습니다.",
+  collectionCreatedAndSaved: "새 목록을 만들고 작품을 담았습니다.",
+  collectionUpdated: "목록에 저장했습니다.",
+  collectionRemoved: "목록에서 뺐습니다.",
+  collectionSavedImmediately: "선택한 내용은 바로 저장돼요.",
+  collectionPickerDone: "완료",
+  collectionSearch: "보관 목록 검색",
+  noCollections: "아직 보관 목록이 없어요",
+  noCollectionsHelp: "오른쪽 아래 + 버튼으로 새 목록을 만들어 보세요.",
+  noMatchingCollections: "검색한 목록이 없어요",
+  renameCollection: "목록 이름 변경",
+  deleteCollection: "목록 삭제",
+  deleteCollectionHelp:
+    "목록과 담긴 작품의 연결만 삭제합니다. 보관한 작품과 원본 파일, 즐겨찾기는 유지됩니다.",
+  collectionNameSaved: "목록 이름을 변경했습니다.",
+  saveCollectionName: "이름 저장",
+  backCollections: "보관 목록으로 돌아가기",
+  collectionMembership: (name: string) => `${name} 목록에 담기`,
+  savedCollectionCount: (n: number) => `${n}개 목록에 담김`,
   artists: "작가",
   tags: "태그",
   jobs: "작업",
@@ -20,7 +67,7 @@ export const ko = {
   setupNextSteps:
     "관리자 생성 후 저장소를 확인하고 Pixiv 연결과 수집 범위를 설정합니다.",
   setupLater:
-    "Pixiv 쿠키는 나중에 등록해도 됩니다. 설정의 첫 설정 안내에서 준비를 이어갈 수 있어요. 쿠키 저장 후 연결 검증을 마쳐야 수집을 시작할 수 있습니다.",
+    "Pixiv 연결은 나중에 해도 됩니다. 설정의 첫 설정 안내에서 준비를 이어갈 수 있어요. 브라우저에서 로그인한 뒤 로그인 완료를 눌러 연결을 확인하면 수집을 시작할 수 있습니다.",
   setupStorage: "1. 저장 공간 확인",
   setupConnection: "2. Pixiv 계정 연결",
   setupDownloadPolicy: "3. 다운로드할 작품 등급",
@@ -30,7 +77,10 @@ export const ko = {
   loginDescription: "보관한 작품들이 기다리고 있어요.",
   setupToken: "초기 설정 키",
   setupHelp: "서버에서 생성한 초기 설정 키를 입력하세요.",
+  setupTokenTooShort:
+    "초기 설정 키는 16자 이상입니다. 서버에서 만든 키를 그대로 붙여 넣어 주세요.",
   passwordHelp: "12자 이상으로 입력해 주세요.",
+  passwordTooShort: "비밀번호는 12자 이상으로 입력해 주세요.",
   createAdmin: "보관함 만들기",
   loading: "불러오는 중…",
   retry: "다시 시도",
@@ -173,6 +223,7 @@ export const ko = {
   tagTranslationInfo: (language: string, source: string) =>
     `${language} · ${source}`,
   translationLanguages: {
+    und: "언어 미확인",
     ko: "한국어",
     en: "영어",
     ja: "일본어",
@@ -216,7 +267,9 @@ export const ko = {
   noRatingEvidence: "제공된 등급 원문 기록이 없습니다.",
   artworkFiles: "보관 파일과 이전 보관본",
   artworkFilesHelp:
-    "이전 리비전까지 최근 등록 순서로 표시합니다. 파일 크기·해상도·최근 확인 상태와 수집 경로를 확인하고 각 파일을 내려받을 수 있습니다. 우고이라 재생 파일은 원본 ZIP과 별도로 보관합니다.",
+    "이전 리비전까지 최근 등록 순서로 표시합니다. 현재 보관본은 가장 최근 리비전의 파일이고, 이전 보관본은 작품이 바뀌기 전에 받아 둔 파일입니다. 파일 크기·해상도·최근 확인 상태와 수집 경로를 확인하고 각 파일을 내려받을 수 있습니다. 우고이라 재생 파일은 원본 ZIP과 별도로 보관합니다.",
+  fileCurrent: "현재 보관본",
+  filePrevious: "이전 보관본",
   fileRole: "파일 종류",
   allFileRoles: "모든 종류",
   fileCount: (n: string) => `보관 파일 ${n}개`,
@@ -305,7 +358,7 @@ export const ko = {
     ready: "보관 완료",
     failed: "보관 실패",
     excluded: "로컬 삭제로 제외",
-    skipped: "다운로드 등급 제외",
+    skipped: "등급 정책으로 건너뛴 파일",
   } as Record<string, string>,
   issueHistoryHelp:
     "메타데이터·원본 파일·재생 파일의 문제를 페이지별로 표시합니다. 파일 처리 대기는 실패와 구별해 확인하세요.",
@@ -343,6 +396,7 @@ export const ko = {
     waiting_conversion:
       "원본 보관 완료 · 연결된 재생 파일 생성 작업을 확인하세요",
     fetching: "작품 정보 확인 중",
+    request_limit: "1분 작품 확인 한도에 닿아 잠시 기다리는 중",
     deleting: "보관 파일 삭제 중",
     verifying: "파일 크기와 해시 확인 중",
     thumbnails: "목록 미리보기 보완 중",
@@ -367,7 +421,7 @@ export const ko = {
     unavailable: "접근 불가",
     excluded: "제외",
     error: "정보 확인 실패",
-    download_skipped: "등급 다운로드 제외",
+    download_skipped: "등급 제외 작품",
   } as Record<string, string>,
   deleteProcessed: (n: number) => `${n}개 파일 삭제`,
   jobEvents: "작업 기록",
@@ -375,8 +429,8 @@ export const ko = {
     "최근 100개 상태 변경을 표시합니다. 쿠키·URL·오류 원문은 기록하지 않습니다.",
   openArtwork: "작품 보기",
   jobErrors: {
-    invalid_cookie: "PHPSESSID 쿠키의 값만 입력해 주세요.",
-    cookie_required: "PHPSESSID 쿠키를 새로 등록해 주세요.",
+    invalid_cookie: "로그인 브라우저에서 Pixiv에 다시 로그인해 주세요.",
+    cookie_required: "로그인 브라우저에서 Pixiv 계정을 다시 연결해 주세요.",
     access_denied:
       "Pixiv가 요청을 거부했습니다. 브라우저에서 계정 접속 상태를 확인해 주세요.",
     collection_changed:
@@ -390,13 +444,14 @@ export const ko = {
       "서버에 영상 변환 도구가 없습니다. 설치 구성을 확인해 주세요.",
     source_missing:
       "보관 원본이 없거나 손상되었습니다. 원본부터 복구해 주세요.",
-    auth_expired: "인증이 만료되었습니다. 쿠키를 갱신하고 다시 시도해 주세요.",
-    credential_missing: "Pixiv 쿠키를 등록해 주세요.",
+    auth_expired:
+      "인증이 만료되었습니다. 로그인 브라우저에서 연결을 확인해 주세요.",
+    credential_missing: "로그인 브라우저에서 Pixiv 계정을 연결해 주세요.",
     credential_changed:
-      "쿠키 변경으로 작업이 중단되었습니다. 연결을 검증한 뒤 재개해 주세요.",
+      "로그인 정보가 변경되어 작업이 중단되었습니다. 연결을 확인한 뒤 재개해 주세요.",
     key_unavailable: "서버의 자격 증명 보관 키를 확인해 주세요.",
     account_mismatch:
-      "기존과 다른 Pixiv 계정입니다. 같은 계정의 쿠키를 등록해 주세요.",
+      "기존과 다른 Pixiv 계정입니다. 로그인 브라우저에서 같은 계정으로 로그인해 주세요.",
     rate_limited:
       "요청 제한으로 중단되었습니다. 잠시 기다린 뒤 다시 시도해 주세요.",
     unavailable:
@@ -445,9 +500,9 @@ export const ko = {
   syncHelp:
     "선택한 범위 전체를 확인합니다. 기존 원본과 로컬 태그는 유지됩니다.",
   connectionStates: {
-    cookie_required: "쿠키 등록 필요",
+    cookie_required: "Pixiv 로그인 필요",
     connected: "연결 확인됨",
-    unverified: "쿠키 저장됨 · 검증 대기",
+    unverified: "로그인 확인 대기",
     disconnected: "연결되지 않음",
     auth_expired: "인증 만료",
     account_mismatch: "계정 불일치",
@@ -478,28 +533,94 @@ export const ko = {
   failures: (n: number) => `${n}개 항목 확인 필요`,
   settingsDescription: "오래 보관하기 위한 작은 설정들.",
   pixivConnection: "Pixiv 연결",
+  browserLogin: "로그인 브라우저",
+  browserFreshLogin: "Pixiv 로그인 화면으로 이동",
+  browserFreshLoginHelp:
+    "Pixiv에 로그인해 주세요. 자동 재인증에 사용할 로그인 상태를 안전하게 보관합니다.",
+  browserLoginHelp:
+    "Pixiv 공식 로그인 화면에서 계정을 연결하세요. 로그인한 브라우저를 이용해 만료된 연결을 다시 확인할 수 있습니다.",
+  browserOpen: "브라우저에서 로그인",
+  browserReopen: "로그인 화면 다시 열기",
+  browserCompleteLogin: "로그인 완료",
+  browserReauth: "인증 다시 확인",
+  browserStatusLoading: "브라우저 로그인 상태를 확인하고 있습니다…",
+  browserStatusFailed:
+    "브라우저 로그인 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  browserRequestFailed:
+    "로그인 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  browserLoginNotCompleted:
+    "아직 Pixiv 로그인이 완료되지 않았습니다. 로그인 브라우저에서 로그인과 추가 인증을 마친 뒤 로그인 완료를 다시 눌러 주세요.",
+  browserStates: {
+    disabled: "브라우저 로그인 꺼짐",
+    starting: "로그인 브라우저 준비 중",
+    connected: "Pixiv 연결 확인됨",
+    reauthenticating: "인증 다시 확인 중",
+    awaiting_confirmation: "로그인 완료 확인 대기",
+    needs_login: "Pixiv 로그인 필요",
+    unavailable: "로그인 브라우저 연결 대기",
+    error: "로그인 상태 확인 필요",
+  },
+  browserStateDescriptions: {
+    disabled:
+      "브라우저에서 로그인해 Pixiv 계정을 연결해 주세요. 로그인 버튼이 보이지 않으면 서버의 로그인 브라우저 설정을 확인해 주세요.",
+    starting: "로그인 화면을 준비하고 있습니다. 잠시 기다려 주세요.",
+    connected:
+      "Pixiv 계정 연결을 확인했습니다. 북마크 수집을 시작할 수 있습니다.",
+    reauthenticating:
+      "로그인한 브라우저에서 인증을 다시 확인하고 있습니다. 추가 로그인이 필요하면 안내합니다.",
+    awaiting_confirmation:
+      "로그인 완료를 누를 때 확인합니다. 입력 중에는 자동 인증 확인과 화면 이동을 멈춥니다.",
+    needs_login:
+      "로그인 브라우저를 열어 Pixiv에 로그인해 주세요. 추가 인증이 표시되면 같은 화면에서 진행하세요.",
+    unavailable:
+      "로그인 브라우저에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    error:
+      "인증을 확인하지 못했습니다. 인증을 다시 확인하거나 브라우저를 열어 로그인해 주세요.",
+  },
+  browserAutoReauth:
+    "자동 재인증 사용 중 · 연결이 만료되면 로그인한 브라우저에서 다시 확인합니다. 추가 로그인이 필요하면 직접 진행해 주세요.",
+  browserDisabledConnected:
+    "Pixiv 계정은 연결되어 있습니다. 로그인 브라우저가 꺼져 있어 연결이 만료되면 자동으로 다시 확인할 수 없습니다.",
+  browserDisabledNeedsLogin:
+    "Pixiv 연결을 다시 확인해야 합니다. 서버의 로그인 브라우저를 켠 뒤 로그인해 주세요.",
+  browserAutoReauthOff:
+    "자동 재인증이 꺼져 있습니다. 연결에 문제가 있으면 인증을 다시 확인하거나 로그인해 주세요.",
+  browserAutoReauthPaused:
+    "로그인 중에는 자동 인증 확인을 멈춥니다. 로그인 완료를 눌러 연결을 확인하면 자동 재인증을 다시 사용합니다.",
+  browserLastChecked: "최근 인증 확인",
+  browserLastSynced: "최근 로그인 반영",
+  browserNever: "아직 없음",
+  browserOfficialLoginHelp:
+    "아래 Pixiv 공식 로그인 화면에 아이디와 비밀번호를 입력하세요. 추가 인증도 같은 화면에서 진행하고, 로그인을 마치면 로그인 완료를 눌러 주세요.",
+  browserCloseHelp:
+    "화면을 닫아도 로그인 상태와 자동 재인증 설정은 유지됩니다.",
+  browserPendingCloseHelp:
+    "로그인 완료 전에 화면을 닫으면 자동 인증 확인은 멈춘 상태로 유지됩니다. 다시 열어 로그인을 마친 뒤 로그인 완료를 눌러 재개하세요.",
+  browserViewWaiting: "로그인 화면을 연결하고 있습니다…",
+  browserViewUnavailable:
+    "아직 로그인 화면에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+  browserViewFailed:
+    "로그인 화면 연결이 끊어졌습니다. 다시 연결해 주세요. 자동 재인증 상태는 위에서 확인할 수 있습니다.",
+  browserSessionExpired:
+    "보관함 로그인 상태를 다시 확인해 주세요. 페이지를 새로고침한 뒤 로그인 브라우저를 다시 열어 주세요.",
+  browserViewStates: {
+    connecting: "로그인 화면 연결 중",
+    connected: "로그인 화면 연결됨",
+    disconnected: "로그인 화면 연결 끊김",
+    error: "로그인 화면 연결 실패",
+    session: "보관함 로그인 확인 필요",
+  },
+  browserCanvasLabel: "Pixiv 공식 로그인 브라우저 화면",
+  browserKeyboardHelp:
+    "로그인 화면을 누르면 키보드로 입력할 수 있고 Esc 키로 닫을 수 있습니다. 작은 화면에서는 원래 크기로 전환해 이동하며 보세요. 휴대폰에서 키보드가 뜨지 않으면 컴퓨터에서 로그인해 주세요.",
+  browserActualSize: "원래 크기",
   disconnected: "연결되지 않음",
-  unverified: "쿠키 저장됨 · 검증 대기",
+  unverified: "로그인 확인 대기",
   integrationPending:
-    "쿠키를 보관한 뒤 연결을 검증하세요. 연결이 확인되면 북마크 수집을 시작할 수 있습니다.",
+    "로그인 브라우저에서 연결을 확인하면 북마크 수집을 시작할 수 있습니다.",
   supported:
     "일러스트·만화·우고이라를 보관합니다. 우고이라는 원본 ZIP과 타이밍을 보존하고 MP4 재생 파일을 별도로 만듭니다. 소설은 제외됩니다.",
-  sessionCookie: "PHPSESSID 쿠키",
-  cookieHelp: "PHPSESSID의 값만 입력하세요. 쿠키는 암호화하여 보관합니다.",
-  cookieInstructions: "쿠키 값 확인 방법",
-  cookieSteps: [
-    "브라우저에서 pixiv.net에 로그인하세요.",
-    "개발자 도구(F12)를 열고 Application(애플리케이션) 또는 Storage(저장소) 탭으로 이동하세요.",
-    "Cookies(쿠키)에서 https://www.pixiv.net을 선택하고 PHPSESSID의 Value(값)를 복사하세요.",
-    "위 칸에 값만 붙여넣고 쿠키 보관 → 연결 검증 순서로 실행하세요.",
-  ],
-  cookieExpiry: "쿠키가 만료되면 Pixiv에 다시 로그인한 뒤 새 값을 등록하세요.",
-  cookieMigration:
-    "쿠키 방식으로 변경되었습니다. 기존 refresh token 대신 PHPSESSID 값을 새로 등록하세요.",
-  saveCookie: "쿠키 보관",
-  disconnect: "저장한 쿠키 삭제",
-  cookieSaved:
-    "쿠키를 암호화해 보관했습니다. 연결 검증은 아직 실행되지 않았습니다.",
+  disconnect: "Pixiv 연결 해제",
   display: "작품 표시",
   downloadPolicy: "다운로드할 작품 등급",
   downloadPolicyHelp:
@@ -531,6 +652,16 @@ export const ko = {
   displayHelp:
     "기본 설정에서는 전체 연령 작품만 표시합니다. 수집 범위와는 별개입니다.",
   storage: "저장소",
+  sidebarStorageStatus: "저장소 사용 현황",
+  sidebarStorageDetails: "저장소 상세 보기",
+  sidebarStorageUsed: "전체 사용",
+  sidebarStorageFree: "남은 공간",
+  sidebarStorageArchive: "보관 미디어",
+  sidebarStorageUnavailable: "저장소 정보를 불러올 수 없어요.",
+  sidebarStorageStale: "갱신하지 못했어요.",
+  sidebarStorageLow: "저장 공간이 부족해요.",
+  sidebarStorageUsage: (used: string, total: string) =>
+    `${used} / ${total} 사용`,
   availableSpace: "사용 가능한 공간",
   worker: "작업 처리기",
   workerStates: {
@@ -539,7 +670,6 @@ export const ko = {
     unknown: "아직 연결되지 않음",
   } as Record<string, string>,
   workerHint: "작업 처리기가 연결되면 대기 중인 작업을 실행합니다.",
-  localNotice: "보관된 작품은 인터넷 연결 없이도 감상할 수 있어요.",
   backup: "백업 안내",
   backupHelp:
     "백업 명령은 실행 중에도 일관된 DB 스냅샷을 만들고, 원본 파일을 증분으로 복사합니다. 쿠키 암호화 키는 백업에 포함되지 않으니 별도로 보관하세요.",
@@ -569,6 +699,11 @@ export const ko = {
   requestInterval: "Pixiv 요청 간격",
   requestIntervalHelp:
     "목록·작품 정보 요청 사이의 최소 간격입니다. 안전한 요청 속도를 보장하지 않습니다.",
+  artworksPerMinute: "1분에 확인할 최대 작품 수",
+  artworksPerMinuteHelp:
+    "수동·예약 수집 모두에 적용합니다. 작품 정보 확인만 세고, 북마크 목록 확인과 작품 안 이미지 다운로드는 세지 않습니다. 한도에 닿으면 작업이 다음 요청 가능 시각까지 기다립니다.",
+  artworksPerMinuteOption: (n: number) =>
+    `1분에 ${n}개${n === 5 ? " (기본값)" : ""}`,
   seconds: (n: number) => `${n.toLocaleString("ko-KR")}초`,
   saveSchedule: "예약 설정 저장",
   nextRun: "다음 예약 실행",
@@ -585,8 +720,8 @@ export const ko = {
     queued: "수집 작업을 등록했습니다.",
     merged: "같은 범위와 갱신 방식을 충족하는 작업에 합쳤습니다.",
     job_stopping: "같은 작업의 취소가 끝나지 않아 등록하지 않았습니다.",
-    credential_missing: "쿠키가 없어 실행하지 않았습니다.",
-    cookie_required: "쿠키를 새로 등록해야 해서 실행하지 않았습니다.",
+    credential_missing: "Pixiv 계정이 연결되지 않아 실행하지 않았습니다.",
+    cookie_required: "Pixiv 계정을 다시 연결해야 해서 실행하지 않았습니다.",
     validation_required: "연결 검증이 필요해 실행하지 않았습니다.",
     unverified: "연결 검증이 필요해 실행하지 않았습니다.",
     auth_expired: "인증이 만료되어 실행하지 않았습니다.",

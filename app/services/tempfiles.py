@@ -6,10 +6,12 @@ import os
 import re
 import shutil
 import stat
+import threading
 import uuid
-from contextlib import contextmanager
+from collections.abc import Callable
+from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from app.core.config import Settings
@@ -22,6 +24,7 @@ NAME = re.compile(r"(work|\.creating|\.cleaning)-(blob|avatar|ugoira)-([a-f0-9]{
 MANIFEST = ".workspace.json"
 OWNER_LOCK = ".owner.lock"
 _active_fds = ContextVar("temporary_workspace_fds", default=())
+_blob_reuse = ContextVar("temporary_blob_reuse", default=None)
 
 
 @dataclass(frozen=True)
@@ -30,15 +33,32 @@ class Workspace:
     lock_fd: int
 
 
+@dataclass
+class _BlobReuse:
+    workspace: Workspace
+    guard: Callable[[], None] | None
+    lock: threading.Lock
+    closed: bool = False
+
+
 def active_fds() -> tuple[int, ...]:
     """Keep workspace ownership in FFmpeg/ffprobe until the child actually exits."""
     return _active_fds.get()
 
 
 def root(settings: Settings, *, create=False) -> Path:
-    path = settings.data_dir / "tmp"
-    if path.is_symlink() or not path.resolve().is_relative_to(settings.data_dir.resolve()):
-        raise DomainError("invalid_path", "임시 저장 경로를 확인해 주세요.")
+    base = settings.cache_dir if settings.cache_dir is not None else settings.data_dir
+    path = base / "tmp"
+    try:
+        # Cache is an explicitly configured mount, never a relative path or a
+        # symlink through which recovery could reach an unrelated directory.
+        invalid_cache = settings.cache_dir is not None and (
+            not base.is_absolute() or base != base.resolve()
+        )
+        if invalid_cache or path.is_symlink() or not path.resolve().is_relative_to(base.resolve()):
+            raise DomainError("invalid_path", "임시 저장 경로를 확인해 주세요.")
+    except (OSError, RuntimeError):
+        raise DomainError("invalid_path", "임시 저장 경로를 확인해 주세요.") from None
     if create:
         path.mkdir(parents=True, exist_ok=True, mode=0o700)
     return path
@@ -105,12 +125,13 @@ def workspace(settings: Settings, purpose: str, guard=None):
             os.rename(creating, published)
             sync_directory(directory)
         except BaseException:
-            try:
-                remove(creating)
-                remove(published)
-            finally:
-                if owner_fd is not None:
-                    os.close(owner_fd)
+            # An unlinked open file is kept as .nfs* on NFS, preventing rmdir.
+            # No workspace was published, so release ownership before removal.
+            if owner_fd is not None:
+                os.close(owner_fd)
+                owner_fd = None
+            remove(creating)
+            remove(published)
             raise
     token = _active_fds.set((*active_fds(), owner_fd))
     try:
@@ -126,19 +147,106 @@ def workspace(settings: Settings, purpose: str, guard=None):
                 if published.exists():
                     os.rename(published, cleaning)
                     sync_directory(directory)
+            # The cleaning name already excludes new users. Close the ownership
+            # file before unlinking it; NFS otherwise retains a .nfs* placeholder.
+            os.close(owner_fd)
+            owner_fd = None
             remove(cleaning)
         finally:
-            os.close(owner_fd)
+            if owner_fd is not None:
+                os.close(owner_fd)
+
+
+@contextmanager
+def reuse_blobs(settings: Settings, *, guard=None):
+    """Own a blob workspace and, with cache, NAS publication space for one batch.
+
+    Enter/exit in the async caller, outside its disk_operation/to_thread calls.
+    All disk operations and children must settle before leaving this scope.
+    Nested scopes own separate workspaces and restore the enclosing scope.
+    """
+    with ExitStack() as owners:
+        scopes = {}
+        targets = [settings]
+        if settings.cache_dir is not None:
+            targets.append(replace(settings, cache_dir=None))
+        for target in targets:
+            working = owners.enter_context(workspace(target, "blob", guard))
+            scopes[_blob_key(target)] = _BlobReuse(working, guard, threading.Lock())
+        token = _blob_reuse.set(scopes)
+        try:
+            yield scopes[_blob_key(settings)].workspace
+        finally:
+            _blob_reuse.reset(token)
+            # Copies of this context share the lock and the closed flag. Never
+            # let a late borrower use a workspace whose owner FD was released.
+            for scope in reversed(list(scopes.values())):
+                with scope.lock:
+                    scope.closed = True
+
+
+def _blob_key(settings: Settings):
+    return settings, settings.data_dir.resolve(), root(settings).resolve()
+
+
+@contextmanager
+def blob_workspace(settings: Settings, guard=None):
+    """Borrow a batch's blob workspace exclusively, or use the ordinary lifecycle."""
+    scopes = _blob_reuse.get()
+    scope = scopes.get(_blob_key(settings)) if scopes is not None else None
+    if scope is None:
+        with workspace(settings, "blob", guard) as working:
+            yield working
+        return
+
+    def check():
+        if scope.guard:
+            scope.guard()
+        if guard and guard is not scope.guard:
+            guard()
+
+    while True:
+        check()
+        if scope.lock.acquire(timeout=0.05):
+            break
+    try:
+        if scope.closed:
+            raise RuntimeError("Blob reuse scope has already ended")
+        check()
+        yield scope.workspace
+    finally:
+        scope.lock.release()
+
+
+def publication_workspace(settings: Settings, guard=None):
+    """Borrow NAS blob space; enter before acquiring the media commit lock."""
+    return blob_workspace(replace(settings, cache_dir=None), guard)
 
 
 def reap(settings: Settings, limit: int = 50) -> dict:
-    """Reclaim our abandoned workspaces; preserve live work and unknown legacy files."""
-    directory = root(settings)
+    """Reclaim cache and older NAS workspaces, preserving live and unknown files."""
     result = {"removed": 0, "failed": 0, "active": 0, "unknown": 0}
+    targets = [settings]
+    if settings.cache_dir is not None:
+        targets.append(replace(settings, cache_dir=None))
+    seen = set()
+    for target in targets:
+        directory = root(target)
+        canonical = directory.resolve()
+        if canonical in seen:
+            continue
+        seen.add(canonical)
+        _reap_directory(target, directory, limit, result)
+        if result["removed"] >= limit:
+            break
+    return result
+
+
+def _reap_directory(settings: Settings, directory: Path, limit: int, result: dict):
     try:
         directory.stat()
     except FileNotFoundError:
-        return result
+        return
     with os.scandir(directory) as entries:
         for entry in entries:
             owner_fd = None
@@ -174,6 +282,9 @@ def reap(settings: Settings, limit: int = 50) -> dict:
                     if path != cleaning:
                         os.rename(path, cleaning)
                         sync_directory(directory)
+                    if owner_fd is not None:
+                        os.close(owner_fd)
+                        owner_fd = None
                 result["removed"] += remove(cleaning)
                 if result["removed"] >= limit:
                     break
@@ -184,4 +295,3 @@ def reap(settings: Settings, limit: int = 50) -> dict:
             finally:
                 if owner_fd is not None:
                     os.close(owner_fd)
-    return result

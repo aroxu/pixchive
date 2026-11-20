@@ -1,0 +1,129 @@
+{
+  "checked_at_utc": "2026-10-27T12:14:47Z",
+  "deployment": {
+    "host": "archiver",
+    "url": "http://archiver:28000",
+    "root": "/mnt/storage/pixchive",
+    "filesystem": "nfs4",
+    "all_business_state_on_nas": true,
+    "sqlite_wal_on_nfs_supported": false,
+    "user_authorized_trial_exception": true,
+    "original_local_installation_preserved": true,
+    "source_base_commit": "403073d95e33fbf9bda2fb26b331f320e13c00e0",
+    "uncommitted_worktree_deployed": true,
+    "app_image": "pixchive:archiver-nasfix-20261027",
+    "app_image_id": "sha256:9a9fc6781f3f95e7fc706846dbd9a146dc70e65035068e1404914af65800af11",
+    "helper_image": "pixchive-browser:archiver-nasfix-20261027",
+    "helper_image_id": "sha256:1879a7f41c9d77cf8e62241e11dde2c96c6f6dfb5f0853ee73c1e4a18de1a9ea",
+    "all_four_containers_recreated": true,
+    "service_enabled": true,
+    "hourly_backup_enabled": true
+  },
+  "local_checks": {
+    "backend_passed": 355,
+    "helper_passed": 166,
+    "frontend_passed": 2,
+    "ruff_lint_and_format": "passed",
+    "typescript_and_production_build": "passed",
+    "openapi_contract": "matched",
+    "docker_build": "passed",
+    "permissive_nas_recovery_file_creation": "passed",
+    "optional_prettier": "existing generate-licenses.mjs formatting failure"
+  },
+  "database_quick_check": "ok",
+  "foreign_key_errors": 0,
+  "counts": {
+    "admin_user": 1,
+    "artwork": 71,
+    "asset": 522,
+    "tag": 207,
+    "tag_translation": 191,
+    "credential": 1,
+    "job": 10,
+    "fixture": 0
+  },
+  "sync": {
+    "state": "running",
+    "phase": "scanning_private",
+    "processed": 213,
+    "total": null,
+    "failed": 0,
+    "error_code": null,
+    "full_account_collection_complete": false
+  },
+  "helper": {
+    "state": "connected",
+    "cookie_available": true,
+    "viewing": false,
+    "login_pending": false,
+    "encrypted_state_mode": "0600"
+  },
+  "worker_heartbeat_age_seconds": 1,
+  "storage_workspace_create_write_cleanup_repetitions": 3,
+  "tmp_entry_count": 0,
+  "browser_tags": {
+    "korean_query": "복근",
+    "korean_result_count": 3,
+    "english_query": "abs",
+    "english_result_count": 4,
+    "korean_results_included_in_english": true,
+    "original_tag": "腹筋",
+    "tag_catalog_translation_and_source_visible": true,
+    "tag_detail_work_count": 3
+  },
+  "ugoira": [
+    {
+      "source_hashes_match": true,
+      "zip_frames": 229,
+      "timing_frames": 229,
+      "timing_seconds": 22.9,
+      "codec": "h264",
+      "pixel_format": "yuv420p",
+      "width": 360,
+      "height": 240,
+      "video_seconds": 22.901
+    },
+    {
+      "source_hashes_match": true,
+      "zip_frames": 156,
+      "timing_frames": 156,
+      "timing_seconds": 6.5,
+      "codec": "h264",
+      "pixel_format": "yuv420p",
+      "width": 480,
+      "height": 720,
+      "video_seconds": 6.501
+    },
+    {
+      "source_hashes_match": true,
+      "zip_frames": 149,
+      "timing_frames": 149,
+      "timing_seconds": 12.367,
+      "codec": "h264",
+      "pixel_format": "yuv420p",
+      "width": 1000,
+      "height": 564,
+      "video_seconds": 12.368
+    }
+  ],
+  "browser_video": {
+    "paused": false,
+    "initial_current_time": 0.1628,
+    "later_current_time": 9.1278,
+    "ready_state": 4,
+    "error": null
+  },
+  "backup": {
+    "name": "pixchive-backup-20261027T121341Z",
+    "schema_version": 10,
+    "artworks": 71,
+    "files": 522,
+    "file_bytes": 792245082,
+    "verification": "sha256",
+    "missing": 0,
+    "mismatched": 0,
+    "unverifiable": 0,
+    "recovery_private": true,
+    "independent_nas_failure_protection": false
+  }
+}

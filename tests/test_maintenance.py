@@ -2,7 +2,9 @@ import hashlib
 import io
 import json
 import logging
+import sqlite3
 import zipfile
+from contextlib import closing
 from dataclasses import replace
 from pathlib import Path
 
@@ -15,6 +17,7 @@ from app.core.errors import DomainError
 from app.core.redaction import RedactingFilter, redact
 from app.core.time import now
 from app.models.entities import (
+    AdminUser,
     Artwork,
     ArtworkTag,
     Asset,
@@ -23,11 +26,13 @@ from app.models.entities import (
     CollectionItem,
     CollectionRun,
     Job,
+    LoginAttempt,
     PixivAccount,
+    Session,
     Tag,
     Tombstone,
 )
-from app.services import accounts, backup, jobs, library, schedule, storage
+from app.services import accounts, auth, backup, jobs, library, schedule, storage
 from app.services.fixtures import image_bytes
 from app.worker import run_job
 from tests.test_collection import BookmarkPage, FakeAdapter, connected, context, work
@@ -124,6 +129,36 @@ async def test_validation_resumes_jobs_waiting_for_authentication(client, settin
     await run_job(context(settings, FakeAdapter()), validation.id)
     assert PixivAccount.get().status == "connected"
     assert Job.get_by_id(job.id).state == "queued"
+
+
+async def test_new_validation_request_reruns_validation_held_for_login(admin, settings):
+    connected(settings)
+    first = admin.post("/api/accounts/1/validate", headers={"Idempotency-Key": "expired"})
+    job_id = first.json()["id"]
+    await run_job(context(settings, FakeAdapter(error=AdapterError("auth_expired"))), job_id)
+    held = (Job.get_by_id(job_id).state, PixivAccount.get().status)
+    assert held == ("waiting_auth", "auth_expired")
+    replay = admin.post("/api/accounts/1/validate", headers={"Idempotency-Key": "expired"})
+    assert (replay.json()["id"], replay.json()["state"]) == (job_id, "waiting_auth")
+    # A new check after logging in again runs now instead of joining the held job silently.
+    again = admin.post("/api/accounts/1/validate", headers={"Idempotency-Key": "after-login"})
+    assert again.status_code == 202
+    assert (again.json()["id"], again.json()["state"]) == (job_id, "queued")
+    await run_job(context(settings, FakeAdapter()), job_id)
+    assert Job.get_by_id(job_id).state == "succeeded"
+    assert PixivAccount.get().status == "connected"
+
+
+async def test_verified_login_also_continues_a_held_validation(client, settings):
+    connected(settings)
+    held = jobs.enqueue_account("validate", "expired")
+    await run_job(context(settings, FakeAdapter(error=AdapterError("auth_expired"))), held.id)
+    assert Job.get_by_id(held.id).state == "waiting_auth"
+    connected(settings)  # For example, the login browser verified a fresh session.
+    jobs.resume_waiting_auth()
+    assert Job.get_by_id(held.id).state == "queued"
+    await run_job(context(settings, FakeAdapter()), held.id)
+    assert Job.get_by_id(held.id).state == "succeeded"
 
 
 async def test_delete_is_permanent_tombstoned_and_restore_is_explicit(admin, settings):
@@ -265,7 +300,39 @@ def test_backup_restore_into_new_data_dir_and_incremental_mirror(client, setting
     initialize(broken.data_dir)
     try:
         assert Asset.get().state == "missing"
-        assert Artwork.get_by_id("123").archive_status == "pending"
+        assert Artwork.get_by_id("123").archive_status == "partial"
+    finally:
+        db.close()
+
+
+def test_backups_and_restores_never_carry_browser_logins(admin, settings, tmp_path):
+    session = Session.get()
+    assert LoginAttempt.select().count() == 1
+    snapshot_dir = Path(backup.create(settings, tmp_path / "backups", media=False)["path"])
+    snapshot = snapshot_dir / "pixchive.db"
+    raw = snapshot.read_bytes()
+    assert session.id.encode() not in raw and session.csrf.encode() not in raw
+    with closing(sqlite3.connect(snapshot)) as connection:
+        rows = [
+            connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+            for table in ("session", "login_attempt", "admin_user")
+        ]
+    assert rows == [0, 0, 1]
+    assert admin.get("/api/session").json()["authenticated"]  # The running install keeps it.
+    # A snapshot made before this rule may still hold a login; restoring drops it.
+    with closing(sqlite3.connect(snapshot)) as connection:
+        with connection:
+            connection.execute(
+                "INSERT INTO session (id, admin_id, csrf, expires_at) VALUES (?, ?, ?, ?)",
+                (session.id, session.admin_id, session.csrf, session.expires_at),
+            )
+    target = replace(settings, data_dir=tmp_path / "restored")
+    backup.restore(target, snapshot_dir, None, full_hash=False)
+    initialize(target.data_dir)
+    try:
+        assert Session.select().count() == LoginAttempt.select().count() == 0
+        assert AdminUser.select().count() == 1
+        assert auth.login("admin", "a-synthetic-long-password")
     finally:
         db.close()
 
